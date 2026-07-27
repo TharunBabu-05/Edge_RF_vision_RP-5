@@ -516,16 +516,33 @@
     <!-- ═══ SIDEBAR ═══ -->
     <aside>
 
+      <!-- Layout Selector -->
+      <div class="panel">
+        <div class="panel-title">
+          📁 Saved Layouts
+          <span class="badge" id="layout-count-badge">1</span>
+        </div>
+        <div class="form-row" style="margin-bottom:6px">
+          <select id="layout-selector" style="width:100%;font-size:13px;padding:6px 8px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px"></select>
+        </div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          <button class="btn btn-primary" id="btn-new-layout" style="flex:1;font-size:11px;padding:5px 8px">✚ New</button>
+          <button class="btn btn-secondary" id="btn-rename-layout" style="flex:1;font-size:11px;padding:5px 8px">✏ Rename</button>
+          <button class="btn btn-danger" id="btn-delete-layout" style="flex:1;font-size:11px;padding:5px 8px">✕ Delete</button>
+        </div>
+        <div id="layout-status" style="font-size:11px;color:var(--accent);margin-top:4px;display:none"></div>
+      </div>
+
       <!-- Rooms -->
       <div class="panel">
         <div class="panel-title">
-          Home Layout
+          <span id="layout-name-title">Home Layout</span>
           <span class="badge" id="room-count-badge">3 rooms</span>
         </div>
         <div id="room-list"></div>
         <div style="display:flex;gap:6px;margin-top:4px">
           <button class="btn btn-secondary" id="btn-add-room" style="flex:1">+ Add Room</button>
-          <button class="btn btn-primary" id="btn-save-layout" style="flex:1">💾 Save Layout</button>
+          <button class="btn btn-primary" id="btn-save-layout" style="flex:1">💾 Save</button>
         </div>
         <div id="save-status" style="font-size:11px;color:var(--accent);margin-top:4px;display:none"></div>
       </div>
@@ -725,6 +742,69 @@
     let rooms = [];
     let nextId = 3;
     let selectedRoomId = null;
+    let activeLayoutName = 'My Home';
+
+    // ── Layout management helpers ──────────────────────────────────
+    function showLayoutStatus(msg, ok = true) {
+      const el = document.getElementById('layout-status');
+      el.textContent = msg;
+      el.style.color = ok ? 'var(--accent)' : '#ef4444';
+      el.style.display = 'block';
+      setTimeout(() => el.style.display = 'none', 3000);
+    }
+
+    function updateLayoutTitle() {
+      const t = document.getElementById('layout-name-title');
+      if (t) t.textContent = activeLayoutName;
+    }
+
+    async function populateLayoutSelector(selectName) {
+      try {
+        const res = await fetch('/api/rooms/layouts');
+        const data = await res.json();
+        if (!data.ok) return;
+        const sel = document.getElementById('layout-selector');
+        sel.innerHTML = '';
+        const names = data.names || [];
+        names.forEach(n => {
+          const opt = document.createElement('option');
+          opt.value = n;
+          opt.textContent = n;
+          if (n === (selectName || data.active)) opt.selected = true;
+          sel.appendChild(opt);
+        });
+        document.getElementById('layout-count-badge').textContent = names.length;
+        activeLayoutName = sel.value || data.active || 'My Home';
+        updateLayoutTitle();
+      } catch (e) {}
+    }
+
+    async function loadLayout(name) {
+      try {
+        const res = await fetch(`/api/rooms/layout?name=${encodeURIComponent(name)}`);
+        const data = await res.json();
+        if (data.ok && Array.isArray(data.rooms)) {
+          rooms = data.rooms.map(r => ({
+            ...r, color: ROOM_COLORS[(r.id || 0) % ROOM_COLORS.length]
+          }));
+          nextId = data.nextId || (Math.max(0, ...rooms.map(r => r.id)) + 1);
+          activeLayoutName = data.name || name;
+        }
+      } catch (e) {
+        rooms = [
+          { id: 0, name: 'Living Room', x: 0, y: 0, w: 6, d: 5, h: 2.6, color: ROOM_COLORS[0] },
+          { id: 1, name: 'Bedroom', x: 6, y: 0, w: 4, d: 5, h: 2.6, color: ROOM_COLORS[1] },
+          { id: 2, name: 'Kitchen', x: 0, y: 5, w: 10, d: 3.5, h: 2.6, color: ROOM_COLORS[2] },
+        ];
+        nextId = 3;
+        activeLayoutName = 'My Home';
+      }
+      updateLayoutTitle();
+      selectedRoomId = null;
+      document.getElementById('room-editor').style.display = 'none';
+      renderRoomList();
+      buildRooms();
+    }
 
     // Persist current layout to Pi
     async function saveLayout(silent = false) {
@@ -735,12 +815,12 @@
         const res = await fetch('/api/rooms/layout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ rooms: saveData, nextId })
+          body: JSON.stringify({ name: activeLayoutName, rooms: saveData, nextId })
         });
         const data = await res.json();
         if (!silent) {
           const el = document.getElementById('save-status');
-          el.textContent = data.ok ? `✓ Saved ${data.saved} rooms` : `✗ ${data.error}`;
+          el.textContent = data.ok ? `✓ Saved ${data.saved} rooms to "${activeLayoutName}"` : `✗ ${data.error}`;
           el.style.color = data.ok ? 'var(--accent)' : '#ef4444';
           el.style.display = 'block';
           setTimeout(() => el.style.display = 'none', 3000);
@@ -1597,30 +1677,81 @@
     document.getElementById('btn-save-layout').addEventListener('click', () => saveLayout(false));
 
     // ─────────────────────────────────────────────────────────────
-    // Bootstrap — load saved layout from Pi, then build scene
+    // Layout selector & management buttons
     // ─────────────────────────────────────────────────────────────
-    (async function bootstrap() {
-      try {
-        const res = await fetch('/api/rooms/layout');
-        const data = await res.json();
-        if (data.ok && Array.isArray(data.rooms)) {
-          rooms = data.rooms.map(r => ({
-            ...r,
-            color: ROOM_COLORS[(r.id || 0) % ROOM_COLORS.length]
-          }));
-          nextId = data.nextId || (Math.max(0, ...rooms.map(r => r.id)) + 1);
-        }
-      } catch (e) {
-        // Fallback defaults if fetch fails
-        rooms = [
-          { id: 0, name: 'Living Room', x: 0, y: 0, w: 6, d: 5, h: 2.6, color: ROOM_COLORS[0] },
-          { id: 1, name: 'Bedroom', x: 6, y: 0, w: 4, d: 5, h: 2.6, color: ROOM_COLORS[1] },
-          { id: 2, name: 'Kitchen', x: 0, y: 5, w: 10, d: 3.5, h: 2.6, color: ROOM_COLORS[2] },
-        ];
-        nextId = 3;
+    document.getElementById('layout-selector').addEventListener('change', async (e) => {
+      const name = e.target.value;
+      if (name && name !== activeLayoutName) {
+        await loadLayout(name);
+        showLayoutStatus(`Loaded "${name}"`);
       }
+    });
+
+    document.getElementById('btn-new-layout').addEventListener('click', async () => {
+      const name = prompt('Enter a name for the new layout:');
+      if (!name || !name.trim()) return;
+      // Save current rooms as the new layout
+      activeLayoutName = name.trim();
+      rooms = [];
+      nextId = 0;
+      updateLayoutTitle();
       renderRoomList();
       buildRooms();
+      await saveLayout(true);
+      await populateLayoutSelector(activeLayoutName);
+      showLayoutStatus(`Created "${activeLayoutName}"`);
+    });
+
+    document.getElementById('btn-rename-layout').addEventListener('click', async () => {
+      const newName = prompt(`Rename "${activeLayoutName}" to:`, activeLayoutName);
+      if (!newName || !newName.trim() || newName.trim() === activeLayoutName) return;
+      try {
+        const res = await fetch('/api/rooms/layout/rename', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ oldName: activeLayoutName, newName: newName.trim() })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          activeLayoutName = newName.trim();
+          updateLayoutTitle();
+          await populateLayoutSelector(activeLayoutName);
+          showLayoutStatus(`Renamed to "${activeLayoutName}"`);
+        } else {
+          showLayoutStatus(data.error || 'Rename failed', false);
+        }
+      } catch (e) {
+        showLayoutStatus('Rename failed (network error)', false);
+      }
+    });
+
+    document.getElementById('btn-delete-layout').addEventListener('click', async () => {
+      if (!confirm(`Delete layout "${activeLayoutName}"? This cannot be undone.`)) return;
+      try {
+        const res = await fetch('/api/rooms/layout/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: activeLayoutName })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          showLayoutStatus(`Deleted "${activeLayoutName}"`);
+          await populateLayoutSelector(data.active);
+          await loadLayout(data.active || 'My Home');
+        } else {
+          showLayoutStatus(data.error || 'Delete failed', false);
+        }
+      } catch (e) {
+        showLayoutStatus('Delete failed (network error)', false);
+      }
+    });
+
+    // ─────────────────────────────────────────────────────────────
+    // Bootstrap — load layout list & active layout from Pi
+    // ─────────────────────────────────────────────────────────────
+    (async function bootstrap() {
+      await populateLayoutSelector();
+      await loadLayout(activeLayoutName);
       autoFit();
       animate();
       fetchRFData();

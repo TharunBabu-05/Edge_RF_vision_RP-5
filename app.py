@@ -2975,44 +2975,124 @@ def create_app(runtime: RuntimeContext, stream_worker: StreamWorker) -> Flask:
             return jsonify({"ok": False, "error": str(exc)}), 500
 
     # ---------------------------------------------------------------
-    # Persistent Room Layout (saved on Pi as room_layout.json)
+    # Persistent Room Layouts (multiple named layouts on Pi)
+    # Stored in room_layouts.json: { active, layouts: { name: {rooms, nextId} } }
     # ---------------------------------------------------------------
-    _ROOM_LAYOUT_FILE = Path(__file__).parent / "room_layout.json"
+    _ROOM_LAYOUTS_FILE = Path(__file__).parent / "room_layouts.json"
+    _OLD_LAYOUT_FILE   = Path(__file__).parent / "room_layout.json"
     _DEFAULT_ROOMS = [
         {"id": 0, "name": "Living Room", "x": 0, "y": 0, "w": 6, "d": 5, "h": 2.6},
         {"id": 1, "name": "Bedroom",     "x": 6, "y": 0, "w": 4, "d": 5, "h": 2.6},
         {"id": 2, "name": "Kitchen",     "x": 0, "y": 5, "w": 10, "d": 3.5, "h": 2.6},
     ]
 
-    @app.get("/api/rooms/layout")
-    def get_room_layout() -> Response:
-        """Return the saved room layout, or default if none saved."""
+    def _load_all_layouts() -> dict:
+        """Load all layouts from disk, migrating old single-layout file if needed."""
         import json
-        if _ROOM_LAYOUT_FILE.exists():
+        if _ROOM_LAYOUTS_FILE.exists():
             try:
-                data = json.loads(_ROOM_LAYOUT_FILE.read_text(encoding="utf-8"))
-                return jsonify({"ok": True, "rooms": data.get("rooms", _DEFAULT_ROOMS),
-                                "nextId": data.get("nextId", 3)})
+                return json.loads(_ROOM_LAYOUTS_FILE.read_text(encoding="utf-8"))
             except Exception:
                 pass
-        return jsonify({"ok": True, "rooms": _DEFAULT_ROOMS, "nextId": 3})
+        # Migrate from old single-layout file
+        default_layout = {"rooms": _DEFAULT_ROOMS, "nextId": 3}
+        if _OLD_LAYOUT_FILE.exists():
+            try:
+                default_layout = json.loads(_OLD_LAYOUT_FILE.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+        return {
+            "active": "My Home",
+            "layouts": {"My Home": default_layout}
+        }
+
+    def _save_all_layouts(data: dict):
+        import json
+        _ROOM_LAYOUTS_FILE.write_text(
+            json.dumps(data, indent=2), encoding="utf-8"
+        )
+
+    @app.get("/api/rooms/layouts")
+    def list_room_layouts() -> Response:
+        """List all saved layout names and which is active."""
+        data = _load_all_layouts()
+        return jsonify({
+            "ok": True,
+            "active": data.get("active", "My Home"),
+            "names": list(data.get("layouts", {}).keys())
+        })
+
+    @app.get("/api/rooms/layout")
+    def get_room_layout() -> Response:
+        """Return the active layout, or a specific one via ?name=..."""
+        data = _load_all_layouts()
+        name = request.args.get("name", data.get("active", "My Home"))
+        layouts = data.get("layouts", {})
+        if name in layouts:
+            entry = layouts[name]
+            return jsonify({"ok": True, "name": name,
+                            "rooms": entry.get("rooms", _DEFAULT_ROOMS),
+                            "nextId": entry.get("nextId", 3)})
+        return jsonify({"ok": True, "name": name, "rooms": _DEFAULT_ROOMS, "nextId": 3})
 
     @app.post("/api/rooms/layout")
     def save_room_layout() -> Response:
-        """Persist the current room layout to disk."""
-        import json
+        """Save rooms under a layout name. Body: {name, rooms, nextId}."""
         body = request.get_json(silent=True) or {}
+        name = body.get("name", "My Home")
         rooms = body.get("rooms", [])
         next_id = body.get("nextId", 3)
         try:
-            _ROOM_LAYOUT_FILE.write_text(
-                json.dumps({"rooms": rooms, "nextId": next_id}, indent=2),
-                encoding="utf-8",
-            )
-            LOGGER.info("Room layout saved (%d rooms)", len(rooms))
+            data = _load_all_layouts()
+            data.setdefault("layouts", {})[name] = {"rooms": rooms, "nextId": next_id}
+            data["active"] = name
+            _save_all_layouts(data)
+            LOGGER.info("Room layout '%s' saved (%d rooms)", name, len(rooms))
             return jsonify({"ok": True, "saved": len(rooms)})
         except Exception as exc:
             LOGGER.exception("Failed to save room layout")
+            return jsonify({"ok": False, "error": str(exc)}), 500
+
+    @app.post("/api/rooms/layout/delete")
+    def delete_room_layout() -> Response:
+        """Delete a named layout. Body: {name}."""
+        body = request.get_json(silent=True) or {}
+        name = body.get("name", "")
+        if not name:
+            return jsonify({"ok": False, "error": "No name provided"}), 400
+        try:
+            data = _load_all_layouts()
+            layouts = data.get("layouts", {})
+            if name in layouts:
+                del layouts[name]
+            # If we deleted the active one, switch to the first remaining
+            if data.get("active") == name:
+                data["active"] = next(iter(layouts), "My Home")
+            _save_all_layouts(data)
+            return jsonify({"ok": True, "active": data["active"],
+                            "names": list(layouts.keys())})
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 500
+
+    @app.post("/api/rooms/layout/rename")
+    def rename_room_layout() -> Response:
+        """Rename a layout. Body: {oldName, newName}."""
+        body = request.get_json(silent=True) or {}
+        old = body.get("oldName", "")
+        new = body.get("newName", "").strip()
+        if not old or not new:
+            return jsonify({"ok": False, "error": "Names required"}), 400
+        try:
+            data = _load_all_layouts()
+            layouts = data.get("layouts", {})
+            if old in layouts:
+                layouts[new] = layouts.pop(old)
+                if data.get("active") == old:
+                    data["active"] = new
+                _save_all_layouts(data)
+            return jsonify({"ok": True, "names": list(layouts.keys()),
+                            "active": data.get("active", new)})
+        except Exception as exc:
             return jsonify({"ok": False, "error": str(exc)}), 500
 
     @app.get("/3dmap")
