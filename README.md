@@ -4,13 +4,13 @@
   <h1>EdgeRF 3D: Spatial RF Propagation Mapping</h1>
   <p><b>3D Indoor WiFi Signal Mapping and Wireless Environment Reconstruction System.</b></p>
 
-  <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&pause=1000&width=800&lines=3D+Spatial+RF+Mapping;Live+Wireless+Environment+Reconstruction;Built+for+Raspberry+Pi+Zero+2W;Computer+Vision+%2B+WiFi+Telemetry" alt="Typing animation" />
+  <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&pause=1000&width=800&lines=3D+Spatial+RF+Mapping;Holistic+Room+Reconstruction+%2B+Furniture;Built+for+Raspberry+Pi+5+%2816GB%29;Computer+Vision+%2B+WiFi+Telemetry" alt="Typing animation" />
 
   <p>
     <a href="https://github.com/TharunBabu-05/EdgeRF-Vision-Real-Time-WiFi-Signal-Visualization-System-Camera-Based-Heat-Mapping"><img src="https://img.shields.io/badge/Repo-EdgeRF%203D-0b7285?style=for-the-badge" alt="Repo" /></a>
     <img src="https://img.shields.io/badge/Status-Research-2ea44f?style=for-the-badge" alt="Status" />
     <img src="https://img.shields.io/badge/Build-Passing-1f6feb?style=for-the-badge" alt="Build" />
-    <img src="https://img.shields.io/badge/Platform-Raspberry%20Pi%20Zero%202W-f7b731?style=for-the-badge" alt="Platform" />
+    <img src="https://img.shields.io/badge/Platform-Raspberry%20Pi%205%20(16GB)-f7b731?style=for-the-badge" alt="Platform" />
     <img src="https://img.shields.io/badge/Python-3.9%2B-3776ab?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
   </p>
 
@@ -32,7 +32,7 @@
 ---
 
 ## 🚀 Overview
-EdgeRF 3D is a highly advanced **Spatial RF Propagation Mapping and 3D Wireless Environment Reconstruction System**. Moving beyond simple 2D overlays, this system uses Computer Vision (Visual Odometry / SLAM concepts) to understand room geometry, samples ambient WiFi signal strength (RSSI), and builds an interpolated 3D RF heatmap. It is optimized entirely for edge operation on constrained devices like the Raspberry Pi Zero 2W.
+EdgeRF 3D is a highly advanced **Spatial RF Propagation Mapping and Holistic 3D Wireless Environment Reconstruction System**. Moving beyond simple 2D overlays, this system uses Computer Vision (Visual Odometry / SLAM) to understand room geometry, performs holistic 3D room reconstruction from 4 camera images, detects and places furniture in 3D, samples ambient WiFi signal strength (RSSI), and builds an interpolated 3D RF heatmap inside a real room model. Runs entirely on **Raspberry Pi 5 (16 GB RAM)** — no CUDA GPU required.
 
 ---
 
@@ -45,12 +45,13 @@ Instead of treating the camera as an RF sensor, the camera is used for **Spatial
 ---
 
 ## ✨ Key Features
-- **3D Room Reconstruction:** Utilizes computer vision to detect walls and boundaries.
-- **Coordinate-Anchored Telemetry:** Maps real-time RSSI (dBm) readings to physical space.
-- **RF Field Interpolation:** Uses Gaussian and IDW interpolation to estimate continuous signal fields.
-- **Interactive 3D Heatmap:** Streams live mapped data to a web client.
-- **Edge-Optimized Pipeline:** Threaded CPU-efficient architecture tailored for Raspberry Pi.
-- **Multi-AP Tracking:** Capable of tracking multiple SSIDs simultaneously in the spatial grid.
+- **🏠 Holistic 3D Room Reconstruction:** 4-shot guided capture (N/E/S/W) → real walls, floor, ceiling + furniture boxes.
+- **🛋️ Furniture Detection:** YOLOv8-nano ONNX detects chairs, sofas, beds, tables etc. and places 3D bounding boxes in the scene.
+- **📐 Monocular Depth Estimation:** MiDaS-Small ONNX provides metric-scale depth from each camera image without LiDAR.
+- **📡 Coordinate-Anchored RF Telemetry:** Maps real-time RSSI (dBm) readings to physical 3D coordinates inside the real room.
+- **🎨 Interactive 3D Digital Twin:** Three.js viewer with real room geometry, furniture, RF heatmap, and walk path.
+- **⚡ Edge-Optimized Pipeline:** CPU-only ONNX models tuned for Raspberry Pi 5 (no CUDA GPU required).
+- **🔍 Multi-AP Tracking:** Tracks multiple SSIDs simultaneously with per-SSID filtering in the 3D viewer.
 
 ---
 

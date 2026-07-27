@@ -33,12 +33,43 @@ from signal_processor import SignalSmoother, get_combined_intensity, get_dominan
 from spatial_mapper import SpatialWifiMapper
 from visualizer import MODE_COMBINED, render
 from wifi_scanner import WifiScanner, start_scanner
+from scene_capture import SceneCaptureManager
+from imu_reader import IMUReader
 
 LOGGER = logging.getLogger("app")
 
 # Cached floor plan (rebuilt on demand)
 _floor_plan_cache: Optional[FloorPlan] = None
 _floor_plan_lock = threading.Lock()
+
+# Scene capture singleton (one per server process)
+_scene_capture: Optional[SceneCaptureManager] = None
+_scene_capture_lock = threading.Lock()
+
+# IMU reader singleton
+_imu_reader: Optional[IMUReader] = None
+_imu_reader_lock = threading.Lock()
+
+
+def _get_imu_reader() -> IMUReader:
+    """Return (or lazily create and start) global IMUReader."""
+    global _imu_reader
+    with _imu_reader_lock:
+        if _imu_reader is None:
+            _imu_reader = IMUReader()
+            _imu_reader.start()
+    return _imu_reader
+
+
+def _get_scene_capture() -> SceneCaptureManager:
+    """Return (or lazily create) the global SceneCaptureManager."""
+    global _scene_capture
+    with _scene_capture_lock:
+        if _scene_capture is None:
+            _scene_capture = SceneCaptureManager()
+            # Try to load a previous reconstruction from disk
+            _scene_capture.load_geometry_from_disk()
+    return _scene_capture
 
 
 class CameraSource:
@@ -418,6 +449,10 @@ class StreamWorker:
 
             with self._raw_lock:
                 self._latest_raw_frame = frame
+
+            # Also expose on runtime so scene shot API can grab a clean frame
+            with self.runtime.lock:
+                self.runtime.latest_frame = frame
 
             self._capture_event.set()
 
@@ -2939,6 +2974,47 @@ def create_app(runtime: RuntimeContext, stream_worker: StreamWorker) -> Flask:
             LOGGER.exception("3D render failed")
             return jsonify({"ok": False, "error": str(exc)}), 500
 
+    # ---------------------------------------------------------------
+    # Persistent Room Layout (saved on Pi as room_layout.json)
+    # ---------------------------------------------------------------
+    _ROOM_LAYOUT_FILE = Path(__file__).parent / "room_layout.json"
+    _DEFAULT_ROOMS = [
+        {"id": 0, "name": "Living Room", "x": 0, "y": 0, "w": 6, "d": 5, "h": 2.6},
+        {"id": 1, "name": "Bedroom",     "x": 6, "y": 0, "w": 4, "d": 5, "h": 2.6},
+        {"id": 2, "name": "Kitchen",     "x": 0, "y": 5, "w": 10, "d": 3.5, "h": 2.6},
+    ]
+
+    @app.get("/api/rooms/layout")
+    def get_room_layout() -> Response:
+        """Return the saved room layout, or default if none saved."""
+        import json
+        if _ROOM_LAYOUT_FILE.exists():
+            try:
+                data = json.loads(_ROOM_LAYOUT_FILE.read_text(encoding="utf-8"))
+                return jsonify({"ok": True, "rooms": data.get("rooms", _DEFAULT_ROOMS),
+                                "nextId": data.get("nextId", 3)})
+            except Exception:
+                pass
+        return jsonify({"ok": True, "rooms": _DEFAULT_ROOMS, "nextId": 3})
+
+    @app.post("/api/rooms/layout")
+    def save_room_layout() -> Response:
+        """Persist the current room layout to disk."""
+        import json
+        body = request.get_json(silent=True) or {}
+        rooms = body.get("rooms", [])
+        next_id = body.get("nextId", 3)
+        try:
+            _ROOM_LAYOUT_FILE.write_text(
+                json.dumps({"rooms": rooms, "nextId": next_id}, indent=2),
+                encoding="utf-8",
+            )
+            LOGGER.info("Room layout saved (%d rooms)", len(rooms))
+            return jsonify({"ok": True, "saved": len(rooms)})
+        except Exception as exc:
+            LOGGER.exception("Failed to save room layout")
+            return jsonify({"ok": False, "error": str(exc)}), 500
+
     @app.get("/3dmap")
     def page_3dmap() -> Response:
         """Serve the Three.js interactive 3D WiFi Digital Twin page."""
@@ -2947,6 +3023,185 @@ def create_app(runtime: RuntimeContext, stream_worker: StreamWorker) -> Flask:
             return Response(viewer_path.read_text(encoding="utf-8"), mimetype="text/html")
         # Fallback: old matplotlib canvas page
         return Response(_build_3dmap_html(), mimetype="text/html")
+
+    # ---------------------------------------------------------------
+    # Holistic 3D Scene Reconstruction API
+    # (adapted from DeepPanoContext / holistic_scene_parsing concepts)
+    # Raspberry Pi 5 — CPU-only pipeline
+    # ---------------------------------------------------------------
+
+    @app.get("/scene")
+    def page_scene_viewer() -> Response:
+        """Serve the holistic 3D scene viewer (real room geometry + furniture)."""
+        viewer_path = Path(__file__).parent / "scene_3d_viewer.html"
+        if viewer_path.exists():
+            return Response(viewer_path.read_text(encoding="utf-8"), mimetype="text/html")
+        return Response("<h2>scene_3d_viewer.html not found</h2>", mimetype="text/html"), 404
+
+    @app.post("/api/scene/start")
+    def api_scene_start() -> Response:
+        """Begin a new 4-shot capture session (clears previous shots)."""
+        mgr = _get_scene_capture()
+        status = mgr.start_session()
+        return jsonify({
+            "ok": True,
+            "state": status.state,
+            "shots_remaining": status.shots_remaining,
+        })
+
+    @app.post("/api/scene/shot/<direction>")
+    def api_scene_shot(direction: str) -> Response:
+        """Capture a directional shot using the current live camera frame.
+
+        direction must be one of: N, E, S, W
+        The latest frame from the stream worker is used.
+        """
+        mgr = _get_scene_capture()
+        if mgr.get_status().state != "capturing":
+            mgr.start_session()
+
+        # Grab latest frame from stream worker
+        with runtime.lock:
+            latest = getattr(runtime, "latest_frame", None)
+
+        if latest is None or latest.size == 0:
+            # Fallback: read directly from camera
+            # CameraSource.read() returns Optional[np.ndarray] (not a tuple!)
+            latest = runtime.camera.read()
+            if latest is None:
+                return jsonify({"ok": False, "error": "No camera frame available. Is the camera streaming?"}), 503
+
+        status = mgr.take_shot(direction.upper(), latest)
+        return jsonify({
+            "ok": True,
+            "direction": direction.upper(),
+            "state": status.state,
+            "shots_taken": status.shots_taken,
+            "shots_remaining": status.shots_remaining,
+            "progress_pct": status.progress_pct,
+        })
+
+    @app.post("/api/scene/reconstruct")
+    def api_scene_reconstruct() -> Response:
+        """Trigger background room reconstruction from captured shots.
+
+        Pass walk_path and rf_samples from the current VO + RF database
+        so the reconstructed room includes real RF data.
+        """
+        mgr = _get_scene_capture()
+        # Attach current VO walk path
+        samples_list = runtime.rf_db.to_dict_list()
+        walk = []
+        try:
+            plan_samples = samples_list
+            if plan_samples:
+                walk = [[float(s["x"]), float(s["y"]), float(s["z"])] for s in plan_samples[-200:]]
+        except Exception:
+            walk = []
+
+        status = mgr.reconstruct(walk_path=walk, rf_samples=samples_list)
+        return jsonify({
+            "ok": True,
+            "state": status.state,
+            "progress_pct": status.progress_pct,
+        })
+
+    @app.get("/api/scene/status")
+    def api_scene_status() -> Response:
+        """Return current capture / reconstruction status."""
+        mgr = _get_scene_capture()
+        s = mgr.get_status()
+        return jsonify({
+            "state": s.state,
+            "shots_taken": s.shots_taken,
+            "shots_remaining": s.shots_remaining,
+            "progress_pct": s.progress_pct,
+            "error": s.error,
+            "has_geometry": s.has_geometry,
+            "room_width":   round(s.room_width, 2),
+            "room_depth":   round(s.room_depth, 2),
+            "room_height":  round(s.room_height, 2),
+            "furniture_count": s.furniture_count,
+        })
+
+    @app.get("/api/scene/geometry")
+    def api_scene_geometry() -> Response:
+        """Return room_geometry.json for the Three.js scene viewer."""
+        import json as _json
+        mgr = _get_scene_capture()
+        geom = mgr.get_geometry_dict()
+        if geom is None:
+            # Try loading from disk
+            if mgr.load_geometry_from_disk():
+                geom = mgr.get_geometry_dict()
+        if geom is None:
+            return jsonify({"ok": False, "error": "No scene geometry available. Please run a capture and reconstruct first."}), 404
+        # Attach latest RF samples for real-time overlay
+        geom["rf_samples"] = runtime.rf_db.to_dict_list(max_items=500)
+        geom["ok"] = True
+        return jsonify(geom)
+
+    @app.get("/api/scene/preview/<direction>")
+    def api_scene_preview(direction: str) -> Response:
+        """Return JPEG thumbnail of a captured shot."""
+        mgr = _get_scene_capture()
+        jpeg = mgr.get_preview_jpeg(direction.upper(), max_size=320)
+        if jpeg is None:
+            return Response(b"", status=204)
+        return Response(jpeg, mimetype="image/jpeg")
+
+    @app.post("/api/scene/reset")
+    def api_scene_reset() -> Response:
+        """Cancel capture session and clear all data."""
+        mgr = _get_scene_capture()
+        mgr.cancel()
+        return jsonify({"ok": True, "state": "idle"})
+
+    # ---------------------------------------------------------------
+    # IMU Sensor API
+    # ---------------------------------------------------------------
+
+    @app.get("/api/imu/orientation")
+    def api_imu_orientation() -> Response:
+        """Return real-time IMU orientation angles (Yaw, Pitch, Roll)."""
+        reader = _get_imu_reader()
+        ori = reader.get_orientation()
+        return jsonify({
+            "ok": True,
+            "yaw": ori.yaw,
+            "pitch": ori.pitch,
+            "roll": ori.roll,
+            "yaw_rad": ori.yaw_rad,
+            "hardware_detected": ori.hardware_detected,
+            "timestamp": ori.timestamp,
+        })
+
+    @app.get("/api/imu/debug")
+    def api_imu_debug() -> Response:
+        """Return raw IMU readings for hardware verification."""
+        reader = _get_imu_reader()
+        raw = reader._read_raw_data()
+        ori = reader.get_orientation()
+        if raw is None:
+            return jsonify({
+                "ok": False,
+                "hardware_detected": reader.hardware_detected,
+                "mode": "simulation",
+                "orientation": {"yaw": ori.yaw, "pitch": ori.pitch, "roll": ori.roll},
+                "message": "IMU hardware not responding. Check wiring (SDA=GPIO2, SCL=GPIO3) and run: pip install smbus2",
+            })
+        ax, ay, az, gx, gy, gz = raw
+        return jsonify({
+            "ok": True,
+            "hardware_detected": reader.hardware_detected,
+            "i2c_addr": f"0x{reader._addr:02X}",
+            "mode": "hardware",
+            "raw": {
+                "accel_g":  {"x": round(ax, 4), "y": round(ay, 4), "z": round(az, 4)},
+                "gyro_dps": {"x": round(gx, 4), "y": round(gy, 4), "z": round(gz, 4)},
+            },
+            "orientation": {"yaw": ori.yaw, "pitch": ori.pitch, "roll": ori.roll},
+        })
 
     return app
 

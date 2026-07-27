@@ -7,8 +7,16 @@ and reconstructs a 2D floor plan:
   - Walk path trace for visualization
   - AP location pins (peak-signal position per SSID)
 
-This floor plan is then consumed by heatmap_3d_renderer.py to produce
-the Ekahau-style 3D isometric WiFi coverage map.
+This floor plan is consumed by heatmap_3d_renderer.py to produce the
+Ekahau-style 3D isometric WiFi coverage map.
+
+New in the Raspberry Pi 5 edition:
+  ``FloorPlan.from_scene_geometry()`` — bridge method that converts a
+  SceneGeometry (from scene_reconstructor.py) into a FloorPlan so the
+  existing heatmap renderer pipeline continues to work unchanged.
+
+  ``FloorPlan.to_threejs_json()`` — export format consumed by the new
+  scene_3d_viewer.html Three.js viewer.
 """
 
 from __future__ import annotations
@@ -139,6 +147,63 @@ class FloorPlan:
     def from_json(cls, path: str) -> "FloorPlan":
         with open(path, "r", encoding="utf-8") as f:
             return cls.from_dict(json.load(f))
+
+    @classmethod
+    def from_scene_geometry(cls, geom) -> "FloorPlan":
+        """Bridge: convert a SceneGeometry to a FloorPlan.
+
+        Allows the existing Ekahau 3D renderer pipeline to work with
+        holistically reconstructed room geometry from scene_reconstructor.py.
+
+        Args:
+            geom: SceneGeometry dataclass (or dict with same keys).
+        """
+        if hasattr(geom, "to_dict"):
+            d = geom.to_dict()
+        else:
+            d = geom
+
+        rw = float(d.get("room_width",  5.0))
+        rd = float(d.get("room_depth",  5.0))
+
+        room = Room(name="Main Room", x_min=0.0, x_max=rw, y_min=0.0, y_max=rd)
+
+        walk_raw = d.get("walk_path", [])
+        walk = [(float(p[0]), float(p[1])) for p in walk_raw if len(p) >= 2]
+
+        # Build AP locations from RF samples (peak dBm per SSID)
+        ap_by_ssid: Dict[str, APLocation] = {}
+        for s in d.get("rf_samples", []):
+            ssid = s.get("ssid", "")
+            dbm  = float(s.get("dbm", -90))
+            sx, sy = float(s.get("x", 0)), float(s.get("y", 0))
+            if ssid not in ap_by_ssid or dbm > ap_by_ssid[ssid].dbm_peak:
+                ap_by_ssid[ssid] = APLocation(x=sx, y=sy, ssid=ssid, dbm_peak=dbm)
+            ap_by_ssid[ssid].sample_count = ap_by_ssid[ssid].sample_count + 1
+
+        return cls(
+            x_min=0.0, x_max=rw,
+            y_min=0.0, y_max=rd,
+            rooms=[room],
+            walk_path=walk,
+            ap_locations=list(ap_by_ssid.values()),
+            wall_thickness=0.3,
+            scale=1.0,
+            source_csv="scene_reconstructor",
+        )
+
+    def to_threejs_json(self) -> dict:
+        """Export to the JSON format expected by scene_3d_viewer.html."""
+        return {
+            "room_width":  self.x_max - self.x_min,
+            "room_depth":  self.y_max - self.y_min,
+            "room_height": 2.5,  # default ceiling height
+            "walls": [],         # populated by scene_reconstructor
+            "furniture": [],
+            "walk_path": [[p[0], 0.0, p[1]] for p in self.walk_path],
+            "rf_samples": [],
+            "ap_locations": [asdict(a) for a in self.ap_locations],
+        }
 
 
 # ---------------------------------------------------------------------------
