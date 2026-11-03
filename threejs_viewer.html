@@ -576,7 +576,27 @@
         <button class="btn btn-danger" id="btn-del-room" style="margin-top:6px">Remove Room</button>
       </div>
 
-      <!-- Display Settings -->
+      <!-- Active Room panel -->
+      <div class="panel" id="active-room-panel">
+        <div class="panel-title">
+          📍 Active Room (You Are In)
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;line-height:1.4">
+          Choose the room you're physically standing in. RF data is collected only inside that room's box.
+        </div>
+        <select id="active-room-sel" style="width:100%;font-size:13px;padding:6px 8px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;margin-bottom:6px">
+          <option value="">— Not set —</option>
+        </select>
+        <div id="active-room-indicator" style="display:none;padding:6px 10px;border-radius:6px;background:rgba(0,194,255,0.12);border:1px solid rgba(0,194,255,0.4);font-size:12px;color:#00c2ff;margin-bottom:6px;text-align:center">
+          🟢 Collecting in: <strong id="active-room-name-display">—</strong>
+        </div>
+        <div style="display:flex;gap:5px">
+          <button class="btn btn-secondary" id="btn-clear-room-data" style="flex:1;font-size:11px;padding:5px 8px">🗑 Clear Room Data</button>
+          <button class="btn btn-danger" id="btn-clear-all-rooms" style="flex:1;font-size:11px;padding:5px 8px">⚠ Clear All</button>
+        </div>
+        <div id="room-data-status" style="font-size:11px;color:var(--muted);margin-top:5px;display:none"></div>
+      </div>
+
       <div class="panel">
         <div class="panel-title">Display</div>
         <div class="form-row">
@@ -801,7 +821,11 @@
       }
       updateLayoutTitle();
       selectedRoomId = null;
+      activeRoomId = null;
+      roomSamples = {};
       document.getElementById('room-editor').style.display = 'none';
+      setActiveRoomIndicator(null);
+      refreshActiveRoomSelector();
       renderRoomList();
       buildRooms();
     }
@@ -837,16 +861,61 @@
     }
 
     // ─────────────────────────────────────────────────────────────
-    // RF data
+    // RF data + per-room sample store
     // ─────────────────────────────────────────────────────────────
-    let rfSamples = [];   // [{x,y,z,dbm,ssid}, ...]
+    let rfSamples = [];        // live samples from backend
     let activeSSID = '';
     let showPath = true;
     let showAP = true;
     let dotSize = 0.18;
 
+    let roomSamples = {};      // { roomId: [frozen {x,y,z,dbm,ssid}, ...] }
+    let roomIntervals = {};    // { roomId: [{start: timestamp, end: timestamp}, ...] }
+    let activeRoomId = null;   // which room the user is physically standing in
+    let activeRoomStartTime = null;
+    let globalLatestTimestamp = 0; // Server time of last seen sample
+
+    function refreshActiveRoomSelector() {
+      const sel = document.getElementById('active-room-sel');
+      const prev = sel.value;
+      sel.innerHTML = '<option value="">— Not set —</option>';
+      rooms.forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = r.id;
+        const count = (roomSamples[r.id] || []).length;
+        opt.textContent = `${r.name}${count ? ` (${count} pts)` : ''}`;
+        if (r.id == activeRoomId) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      if (prev && rooms.find(r => r.id == prev)) sel.value = prev;
+    }
+
+    function setActiveRoomIndicator(room) {
+      const ind = document.getElementById('active-room-indicator');
+      const lbl = document.getElementById('active-room-name-display');
+      if (room) {
+        const hex = '#' + new THREE.Color(room.color).getHexString();
+        lbl.textContent = room.name;
+        ind.style.display = 'block';
+        ind.style.borderColor = hex + '80';
+        ind.style.background = hex + '18';
+        ind.style.color = hex;
+      } else {
+        ind.style.display = 'none';
+      }
+    }
+
+    function showRoomDataStatus(msg, ok = true) {
+      const el = document.getElementById('room-data-status');
+      el.textContent = msg;
+      el.style.color = ok ? 'var(--accent)' : '#ef4444';
+      el.style.display = 'block';
+      setTimeout(() => el.style.display = 'none', 3000);
+    }
+
     // ─────────────────────────────────────────────────────────────
     // Three.js scene setup
+
     // ─────────────────────────────────────────────────────────────
     const canvas = document.getElementById('three-canvas');
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
@@ -1132,10 +1201,11 @@
     }
 
     // ─────────────────────────────────────────────────────────────
-    // Build RF sample spheres + heatmap — coordinates remapped into room space
+    // Build RF sample spheres + heatmap — per-room spatial clamping
     // ─────────────────────────────────────────────────────────────
     function buildRFSamples() {
-      [rfGroup, pathGroup, apGroup].forEach(g => {
+      // Clear all groups
+      [rfGroup, pathGroup, apGroup, heatmapGroup].forEach(g => {
         while (g.children.length) {
           const c = g.children[0];
           c.geometry?.dispose();
@@ -1145,196 +1215,176 @@
         }
       });
 
-      const filtered = activeSSID
-        ? rfSamples.filter(s => s.ssid === activeSSID)
-        : rfSamples;
+      let totalSamples = 0;
+      let bestDBM = -Infinity;
 
-      if (!filtered.length) return;
+      // Render each room: frozen snapshot for non-active rooms, live for active room
+      rooms.forEach(room => {
+        const isActive = room.id == activeRoomId;
+        const samples = isActive
+          ? (activeSSID ? rfSamples.filter(s => s.ssid === activeSSID) : rfSamples)
+          : (roomSamples[room.id] || []).filter(s => !activeSSID || s.ssid === activeSSID);
 
-      // ── 1. Compute sample bounding box (VO space) ─────────────
-      let sxMin = Infinity, sxMax = -Infinity;
-      let syMin = Infinity, syMax = -Infinity;
-      filtered.forEach(s => {
-        sxMin = Math.min(sxMin, s.x); sxMax = Math.max(sxMax, s.x);
-        syMin = Math.min(syMin, s.y); syMax = Math.max(syMax, s.y);
-      });
-      const sxSpan = Math.max(sxMax - sxMin, 0.001);
-      const sySpan = Math.max(syMax - syMin, 0.001);
+        if (!samples.length) return;
+        totalSamples += samples.length;
 
-      // ── 2. Compute room bounding box (world space) ─────────────
-      let rxMin = Infinity, rxMax = -Infinity;
-      let ryMin = Infinity, ryMax = -Infinity;
-      rooms.forEach(r => {
-        rxMin = Math.min(rxMin, r.x); rxMax = Math.max(rxMax, r.x + r.w);
-        ryMin = Math.min(ryMin, r.y); ryMax = Math.max(ryMax, r.y + r.d);
-      });
-      // Add a small inset margin so dots don't sit exactly on the wall
-      const margin = 0.4;
-      const rxSpan = Math.max(rxMax - rxMin - margin * 2, 0.001);
-      const rySpan = Math.max(ryMax - ryMin - margin * 2, 0.001);
+        // Per-room bounding box (world space)
+        const rx = room.x, ry = room.y, rw = room.w, rd = room.d, rh = room.h;
+        const margin = 0.3;
 
-      // ── 3. Remap function: VO (x,y,z) → Three.js (worldX, worldY, worldZ) ─
-      // Compute Z variance — if VO tracked vertical motion, use it;
-      // otherwise fall back to dBm-based height so samples form a 3D cloud.
-      let szMin = Infinity, szMax = -Infinity;
-      filtered.forEach(s => { szMin = Math.min(szMin, s.z ?? 0); szMax = Math.max(szMax, s.z ?? 0); });
-      const szSpan = Math.max(szMax - szMin, 0.001);
-      const hasRealZ = szSpan > 0.3;   // true only if VO actually tracked vertical movement
+        // Compute sample VO bounding box so we can normalize them into this room
+        let sxMin = Infinity, sxMax = -Infinity;
+        let syMin = Infinity, syMax = -Infinity;
+        let szMin = Infinity, szMax = -Infinity;
+        samples.forEach(s => {
+          sxMin = Math.min(sxMin, s.x ?? 0); sxMax = Math.max(sxMax, s.x ?? 0);
+          syMin = Math.min(syMin, s.y ?? 0); syMax = Math.max(syMax, s.y ?? 0);
+          szMin = Math.min(szMin, s.z ?? 0); szMax = Math.max(szMax, s.z ?? 0);
+        });
+        const sxSpan = Math.max(sxMax - sxMin, 0.001);
+        const sySpan = Math.max(syMax - syMin, 0.001);
+        const szSpan = Math.max(szMax - szMin, 0.001);
+        const hasRealZ = szSpan > 0.3;
 
-      const maxH = rooms.length ? Math.min(...rooms.map(r => r.h)) : 2.6;
-
-      // Stable per-sample jitter seeded from BSSID/position so it doesn't jump on refresh
-      function sampleJitter(s, range) {
-        const seed = (s.bssid || s.ssid || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0) +
-          Math.round((s.x || 0) * 100) + Math.round((s.y || 0) * 100);
-        // LCG pseudo-random from seed
-        const r = ((seed * 1664525 + 1013904223) & 0xffffffff) / 0xffffffff;
-        return (r - 0.5) * range;
-      }
-
-      function remap(s) {
-        const wx = rxMin + margin + ((s.x - sxMin) / sxSpan) * rxSpan;
-        const wz = ryMin + margin + ((s.y - syMin) / sySpan) * rySpan;
-
-        let wy;
-        if (hasRealZ) {
-          // VO captured real vertical motion — use it mapped to room height
-          wy = Math.min(Math.max(0.08, ((s.z - szMin) / szSpan) * maxH * 0.85), maxH * 0.9);
-        } else {
-          // Floor-level walk: elevate spheres by signal strength (strong = high, weak = low)
-          // so they form a 3D "signal tower" at each position.
-          const t = Math.max(0, Math.min(1, ((s.dbm ?? -90) - (-90)) / 60));   // 0=weak 1=strong
-          const baseH = 0.15 + t * maxH * 0.72;   // 0.15 m (weak) → 72% of ceiling (strong)
-          // Add small stable jitter so same-position samples spread slightly
-          const jitter = sampleJitter(s, 0.35);
-          wy = Math.min(Math.max(0.05, baseH + jitter), maxH * 0.92);
+        // Jitter helper seeded per-sample
+        function jitter(s, range) {
+          const seed = (s.bssid || s.ssid || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+            + Math.round((s.x || 0) * 100) + Math.round((s.y || 0) * 100);
+          const r = ((seed * 1664525 + 1013904223) & 0xffffffff) / 0xffffffff;
+          return (r - 0.5) * range;
         }
-        return { wx, wy, wz };
-      }
 
-      // ── 4. Place sample spheres ───────────────────────────────
-      const sphGeo = new THREE.SphereGeometry(dotSize, 10, 8);
+        // Remap VO sample → inside this room's world box
+        function remapIntoRoom(s) {
+          const wx = rx + margin + ((s.x - sxMin) / sxSpan) * (rw - margin * 2);
+          const wz = ry + margin + ((s.y - syMin) / sySpan) * (rd - margin * 2);
+          let wy;
+          if (hasRealZ) {
+            wy = Math.min(Math.max(0.08, ((s.z - szMin) / szSpan) * rh * 0.85), rh * 0.9);
+          } else {
+            const t = Math.max(0, Math.min(1, ((s.dbm ?? -90) - (-90)) / 60));
+            wy = Math.min(Math.max(0.05, 0.15 + t * rh * 0.72 + jitter(s, 0.35)), rh * 0.92);
+          }
+          // Hard clamp to room boundaries
+          return {
+            wx: Math.max(rx + 0.05, Math.min(rx + rw - 0.05, wx)),
+            wy: Math.max(0.05, Math.min(rh - 0.05, wy)),
+            wz: Math.max(ry + 0.05, Math.min(ry + rd - 0.05, wz))
+          };
+        }
 
-      filtered.forEach(s => {
-        const { wx, wy, wz } = remap(s);
-        const col = dbmToColor(s.dbm);
-        const mat = new THREE.MeshStandardMaterial({
-          color: col, roughness: 0.3, metalness: 0.2,
-          emissive: col, emissiveIntensity: 0.35,
-        });
-        const mesh = new THREE.Mesh(sphGeo, mat);
-        mesh.position.set(wx, wy, wz);
-        mesh.castShadow = true;
-        mesh.userData = { dbm: s.dbm, ssid: s.ssid };
-        rfGroup.add(mesh);
-      });
+        const opacity = isActive ? 1.0 : 0.45;   // frozen rooms are dimmed
+        const sphGeo = new THREE.SphereGeometry(dotSize * (isActive ? 1 : 0.75), 10, 8);
 
-      // ── 5. Walk path ──────────────────────────────────────────
-      if (showPath && filtered.length >= 2) {
-        const pts = filtered.map(s => {
-          const { wx, wz } = remap(s);
-          return new THREE.Vector3(wx, 0.05, wz);  // path stays at floor level
-        });
-        pathGroup.add(new THREE.Line(
-          new THREE.BufferGeometry().setFromPoints(pts),
-          new THREE.LineBasicMaterial({ color: 0x7c3aed, opacity: 0.7, transparent: true }),
-        ));
+        samples.forEach(s => {
+          const { wx, wy, wz } = remapIntoRoom(s);
+          const col = dbmToColor(s.dbm);
+          if (s.dbm > bestDBM) bestDBM = s.dbm;
 
-        // Start (green) / End (red) markers
-        const mkGeo = new THREE.SphereGeometry(0.14, 8, 6);
-        const mkS = new THREE.Mesh(mkGeo, new THREE.MeshStandardMaterial(
-          { color: 0x22d38a, emissive: 0x22d38a, emissiveIntensity: 0.7 }));
-        mkS.position.copy(pts[0]);
-        pathGroup.add(mkS);
-
-        const mkE = new THREE.Mesh(mkGeo, new THREE.MeshStandardMaterial(
-          { color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 0.7 }));
-        mkE.position.copy(pts[pts.length - 1]);
-        pathGroup.add(mkE);
-      }
-
-      // ── 6. AP pins (peak-signal per SSID) ────────────────────
-      if (showAP) {
-        const bySSID = {};
-        filtered.forEach(s => {
-          if (!bySSID[s.ssid] || s.dbm > bySSID[s.ssid].dbm) bySSID[s.ssid] = s;
+          const mat = new THREE.MeshStandardMaterial({
+            color: col, roughness: 0.3, metalness: 0.2,
+            emissive: col, emissiveIntensity: isActive ? 0.35 : 0.1,
+            transparent: !isActive, opacity,
+          });
+          const mesh = new THREE.Mesh(sphGeo, mat);
+          mesh.position.set(wx, wy, wz);
+          mesh.castShadow = isActive;
+          mesh.userData = { dbm: s.dbm, ssid: s.ssid };
+          rfGroup.add(mesh);
         });
 
-        Object.values(bySSID).forEach(ap => {
-          const { wx, wz } = remap(ap);
-          const apH = 1.5;
-
-          // Pole from floor to bulb
+        // ── Walk path (only for active room or if no active room selected) ──
+        if (showPath && samples.length >= 2 && isActive) {
+          const pts = samples.map(s => {
+            const { wx, wz } = remapIntoRoom(s);
+            return new THREE.Vector3(wx, 0.05, wz);
+          });
           pathGroup.add(new THREE.Line(
-            new THREE.BufferGeometry().setFromPoints([
-              new THREE.Vector3(wx, 0, wz),
-              new THREE.Vector3(wx, apH, wz),
-            ]),
-            new THREE.LineBasicMaterial({ color: 0x00c2ff }),
+            new THREE.BufferGeometry().setFromPoints(pts),
+            new THREE.LineBasicMaterial({ color: new THREE.Color(room.color), opacity: 0.7, transparent: true }),
           ));
+          // Start/end markers
+          const mkGeo = new THREE.SphereGeometry(0.14, 8, 6);
+          const mkS = new THREE.Mesh(mkGeo, new THREE.MeshStandardMaterial({ color: 0x22d38a, emissive: 0x22d38a, emissiveIntensity: 0.7 }));
+          mkS.position.copy(pts[0]);
+          pathGroup.add(mkS);
+          const mkE = new THREE.Mesh(mkGeo, new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 0.7 }));
+          mkE.position.copy(pts[pts.length - 1]);
+          pathGroup.add(mkE);
+        }
 
-          // Bulb
-          const bulb = new THREE.Mesh(
-            new THREE.SphereGeometry(0.18, 12, 10),
-            new THREE.MeshStandardMaterial({
-              color: 0x00c2ff, emissive: 0x00c2ff,
-              emissiveIntensity: 0.8, roughness: 0.3,
-            }),
-          );
-          bulb.position.set(wx, apH, wz);
-          apGroup.add(bulb);
+        // ── AP pins (only for active room) ────────────────────────
+        if (showAP && isActive) {
+          const bySSID = {};
+          samples.forEach(s => { if (!bySSID[s.ssid] || s.dbm > bySSID[s.ssid].dbm) bySSID[s.ssid] = s; });
+          Object.values(bySSID).forEach(ap => {
+            const { wx, wz } = remapIntoRoom(ap);
+            const apH = 1.5;
+            pathGroup.add(new THREE.Line(
+              new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(wx, 0, wz), new THREE.Vector3(wx, apH, wz)]),
+              new THREE.LineBasicMaterial({ color: 0x00c2ff }),
+            ));
+            const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 10),
+              new THREE.MeshStandardMaterial({ color: 0x00c2ff, emissive: 0x00c2ff, emissiveIntensity: 0.8, roughness: 0.3 }));
+            bulb.position.set(wx, apH, wz);
+            apGroup.add(bulb);
+            // Label
+            const c2 = document.createElement('canvas');
+            c2.width = 256; c2.height = 64;
+            const ct = c2.getContext('2d');
+            ct.fillStyle = 'rgba(7,13,20,0.88)';
+            ct.beginPath(); ct.roundRect(0, 0, 256, 64, 8); ct.fill();
+            ct.strokeStyle = 'rgba(0,194,255,0.65)'; ct.lineWidth = 2;
+            ct.beginPath(); ct.roundRect(1, 1, 254, 62, 7); ct.stroke();
+            ct.fillStyle = '#dde6f0'; ct.font = 'bold 18px monospace';
+            ct.textAlign = 'center'; ct.textBaseline = 'middle';
+            ct.fillText(ap.ssid || '<hidden>', 128, 22);
+            ct.fillStyle = '#00c2ff'; ct.font = '14px monospace';
+            ct.fillText(`${ap.dbm.toFixed(0)} dBm`, 128, 44);
+            const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c2), transparent: true, opacity: 0.95 }));
+            sp.scale.set(1.8, 0.45, 1); sp.position.set(wx, apH + 0.48, wz);
+            apGroup.add(sp);
+          });
+        }
 
-          // Label sprite
-          const c2 = document.createElement('canvas');
-          c2.width = 256; c2.height = 64;
-          const ct = c2.getContext('2d');
-          ct.fillStyle = 'rgba(7,13,20,0.88)';
-          ct.beginPath(); ct.roundRect(0, 0, 256, 64, 8); ct.fill();
-          ct.strokeStyle = 'rgba(0,194,255,0.65)'; ct.lineWidth = 2;
-          ct.beginPath(); ct.roundRect(1, 1, 254, 62, 7); ct.stroke();
-          ct.fillStyle = '#dde6f0'; ct.font = 'bold 18px monospace';
-          ct.textAlign = 'center'; ct.textBaseline = 'middle';
-          ct.fillText(ap.ssid || '<hidden>', 128, 22);
-          ct.fillStyle = '#00c2ff'; ct.font = '14px monospace';
-          ct.fillText(`${ap.dbm.toFixed(0)} dBm`, 128, 44);
-          const sp = new THREE.Sprite(new THREE.SpriteMaterial({
-            map: new THREE.CanvasTexture(c2), transparent: true, opacity: 0.95,
-          }));
-          sp.scale.set(1.8, 0.45, 1);
-          sp.position.set(wx, apH + 0.48, wz);
-          apGroup.add(sp);
-        });
-      }
-
-      // ── 7. Build heatmap / control sphere visibility ─────────
-      // Build remapped array for heatmap (shares same remap logic)
-      const remapped = filtered.map(s => {
-        const { wx, wy, wz } = remap(s);
-        return { wx, wz, dbm: s.dbm };
+        // ── Heatmap (only for active room) ───────────────────────
+        if ((viewMode === 'heatmap' || viewMode === 'both') && isActive) {
+          const remapped = samples.map(s => { const { wx, wz } = remapIntoRoom(s); return { wx, wz, dbm: s.dbm }; });
+          buildHeatmap(remapped);
+        }
       });
 
-      if (viewMode === 'heatmap' || viewMode === 'both') {
-        buildHeatmap(remapped);
-      } else {
-        // Clear heatmap in spheres-only mode
-        while (heatmapGroup.children.length) {
-          const c = heatmapGroup.children[0];
-          c.geometry?.dispose(); c.material?.dispose();
-          heatmapGroup.remove(c);
+      // If no active room set, fall back to rendering all live samples globally (old behaviour)
+      if (activeRoomId === null && rfSamples.length > 0) {
+        const filtered = activeSSID ? rfSamples.filter(s => s.ssid === activeSSID) : rfSamples;
+        if (filtered.length) {
+          totalSamples = filtered.length;
+          let sxMin=Infinity,sxMax=-Infinity,syMin=Infinity,syMax=-Infinity,szMin=Infinity,szMax=-Infinity;
+          filtered.forEach(s=>{sxMin=Math.min(sxMin,s.x??0);sxMax=Math.max(sxMax,s.x??0);syMin=Math.min(syMin,s.y??0);syMax=Math.max(syMax,s.y??0);szMin=Math.min(szMin,s.z??0);szMax=Math.max(szMax,s.z??0);});
+          const sxSpan=Math.max(sxMax-sxMin,0.001),sySpan=Math.max(syMax-syMin,0.001),szSpan=Math.max(szMax-szMin,0.001),hasRealZ=szSpan>0.3;
+          let rxMin=Infinity,rxMax=-Infinity,ryMin=Infinity,ryMax=-Infinity;
+          rooms.forEach(r=>{rxMin=Math.min(rxMin,r.x);rxMax=Math.max(rxMax,r.x+r.w);ryMin=Math.min(ryMin,r.y);ryMax=Math.max(ryMax,r.y+r.d);});
+          const margin=0.4,rxSpan=Math.max(rxMax-rxMin-margin*2,0.001),rySpan=Math.max(ryMax-ryMin-margin*2,0.001),maxH=rooms.length?Math.min(...rooms.map(r=>r.h)):2.6;
+          function jFb(s,range){const seed=(s.bssid||s.ssid||'').split('').reduce((a,c)=>a+c.charCodeAt(0),0)+Math.round((s.x||0)*100)+Math.round((s.y||0)*100);return(((seed*1664525+1013904223)&0xffffffff)/0xffffffff-0.5)*range;}
+          function remapFb(s){const wx=rxMin+margin+((s.x-sxMin)/sxSpan)*rxSpan;const wz=ryMin+margin+((s.y-syMin)/sySpan)*rySpan;const t=Math.max(0,Math.min(1,((s.dbm??-90)-(-90))/60));const wy=hasRealZ?Math.min(Math.max(0.08,((s.z-szMin)/szSpan)*maxH*0.85),maxH*0.9):Math.min(Math.max(0.05,0.15+t*maxH*0.72+jFb(s,0.35)),maxH*0.92);return{wx,wy,wz};}
+          const sphGeo=new THREE.SphereGeometry(dotSize,10,8);
+          filtered.forEach(s=>{const{wx,wy,wz}=remapFb(s);if(s.dbm>bestDBM)bestDBM=s.dbm;const col=dbmToColor(s.dbm);const mesh=new THREE.Mesh(sphGeo,new THREE.MeshStandardMaterial({color:col,roughness:0.3,metalness:0.2,emissive:col,emissiveIntensity:0.35}));mesh.position.set(wx,wy,wz);mesh.userData={dbm:s.dbm,ssid:s.ssid};rfGroup.add(mesh);});
+          if(showPath&&filtered.length>=2){const pts=filtered.map(s=>{const{wx,wz}=remapFb(s);return new THREE.Vector3(wx,0.05,wz);});pathGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0x7c3aed,opacity:0.7,transparent:true})));}
+          if(viewMode==='heatmap'||viewMode==='both'){buildHeatmap(filtered.map(s=>{const{wx,wz}=remapFb(s);return{wx,wz,dbm:s.dbm};}));}
         }
       }
 
-      // Show/hide sphere group based on mode
       rfGroup.visible = (viewMode === 'spheres' || viewMode === 'both');
 
-      // ── 8. Update stats panel ────────────────────────────────
-      const dbmVals = filtered.map(s => s.dbm);
-      const best = Math.max(...dbmVals).toFixed(0);
-      const avg = (dbmVals.reduce((a, b) => a + b, 0) / dbmVals.length).toFixed(0);
-      document.getElementById('st-best').textContent = best + ' dBm';
-      document.getElementById('st-avg').textContent = avg + ' dBm';
-      document.getElementById('st-samples').textContent = filtered.length;
-      document.getElementById('hud-samples').textContent = filtered.length + ' samples';
+      // Update stats
+      const dbmVals = [...rfSamples, ...Object.values(roomSamples).flat()].map(s => s.dbm).filter(Boolean);
+      if (dbmVals.length) {
+        document.getElementById('st-best').textContent = Math.max(...dbmVals).toFixed(0) + ' dBm';
+        document.getElementById('st-avg').textContent = (dbmVals.reduce((a,b) => a+b, 0) / dbmVals.length).toFixed(0) + ' dBm';
+      }
+      document.getElementById('st-samples').textContent = totalSamples;
+      document.getElementById('hud-samples').textContent = totalSamples + ' samples';
+      refreshActiveRoomSelector();
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -1379,8 +1429,49 @@
         let url = `/api/rf/samples?max=3000`;
         if (activeSSID) url += `&ssid=${encodeURIComponent(activeSSID)}`;
         const sRes = await fetch(url).then(r => r.json()).catch(() => null);
+        
         if (sRes && Array.isArray(sRes.samples)) {
-          rfSamples = sRes.samples;
+          const allSamples = sRes.samples;
+          if (allSamples.length > 0) {
+            globalLatestTimestamp = allSamples[allSamples.length - 1].timestamp;
+          }
+          
+          // Clear arrays before re-categorizing
+          rooms.forEach(r => roomSamples[r.id] = []);
+          rfSamples = []; 
+          
+          const openIntervalStart = activeRoomId !== null ? activeRoomStartTime : Infinity;
+          
+          allSamples.forEach(s => {
+            let matched = false;
+            // 1. Check closed intervals
+            for (const r of rooms) {
+              const intervals = roomIntervals[r.id] || [];
+              for (const iv of intervals) {
+                if (s.timestamp >= iv.start && s.timestamp <= iv.end) {
+                  // If it belongs to the currently active room, put it in rfSamples so it renders as live data
+                  if (r.id === activeRoomId) {
+                    rfSamples.push(s);
+                  } else {
+                    roomSamples[r.id].push(s);
+                  }
+                  matched = true;
+                  break;
+                }
+              }
+              if (matched) break;
+            }
+            
+            // 2. If not matched, check open interval (current live scan)
+            if (!matched) {
+              if (activeRoomId !== null && s.timestamp >= openIntervalStart) {
+                rfSamples.push(s);
+              } else if (activeRoomId === null) {
+                // If no active room is set, everything unmatched just shows globally
+                rfSamples.push(s);
+              }
+            }
+          });
         }
 
         buildRFSamples();
@@ -1392,6 +1483,7 @@
       }
     }
 
+
     // ─────────────────────────────────────────────────────────────
     // UI: Rooms sidebar
     // ─────────────────────────────────────────────────────────────
@@ -1399,11 +1491,14 @@
       const list = document.getElementById('room-list');
       list.innerHTML = '';
       rooms.forEach(r => {
+        const isCollecting = r.id == activeRoomId;
+        const frozenCount = (roomSamples[r.id] || []).length;
         const el = document.createElement('div');
         el.className = 'room-item' + (r.id === selectedRoomId ? ' active' : '');
+        if (isCollecting) el.style.outline = `1px solid #${new THREE.Color(r.color).getHexString()}88`;
         el.innerHTML = `
       <div class="room-dot" style="background:#${new THREE.Color(r.color).getHexString()}"></div>
-      <div class="room-label">${r.name}</div>
+      <div class="room-label">${r.name}${isCollecting ? ' <span style="color:#00c2ff;font-size:10px">📡</span>' : ''}${frozenCount && !isCollecting ? ` <span style="font-size:9px;color:var(--muted)">(${frozenCount}pts)</span>` : ''}</div>
       <button class="room-del" data-id="${r.id}" title="Remove">✕</button>
     `;
         el.addEventListener('click', e => {
@@ -1415,6 +1510,7 @@
       });
       document.getElementById('room-count-badge').textContent = rooms.length + ' room' + (rooms.length !== 1 ? 's' : '');
     }
+
 
     function selectRoom(id) {
       selectedRoomId = id;
@@ -1747,6 +1843,68 @@
     });
 
     // ─────────────────────────────────────────────────────────────
+    // Active Room selector handler
+    // ─────────────────────────────────────────────────────────────
+    document.getElementById('active-room-sel').addEventListener('change', (e) => {
+      const newId = e.target.value === '' ? null : parseInt(e.target.value, 10);
+      const now = globalLatestTimestamp > 0 ? globalLatestTimestamp : (Date.now() / 1000);
+
+      // 1. Close the current active room's interval
+      if (activeRoomId !== null) {
+        if (!roomIntervals[activeRoomId]) roomIntervals[activeRoomId] = [];
+        roomIntervals[activeRoomId].push({ start: activeRoomStartTime || 0, end: now });
+      }
+
+      // 2. Open interval for the new room
+      activeRoomId = newId;
+      activeRoomStartTime = newId !== null ? now : null;
+      
+      const room = newId !== null ? rooms.find(r => r.id === newId) : null;
+      setActiveRoomIndicator(room);
+
+      if (room) {
+        showRoomDataStatus(`Now collecting in "${room.name}"`);
+      } else {
+        showRoomDataStatus('No active room — showing all data globally');
+      }
+      
+      // We manually clear rfSamples here immediately so the UI reflects the change 
+      // instantly before the next 8s auto-refresh fetches the real data.
+      rfSamples = [];
+      buildRFSamples();
+    });
+
+
+    document.getElementById('btn-clear-room-data').addEventListener('click', () => {
+      if (activeRoomId === null) { showRoomDataStatus('No active room selected', false); return; }
+      const room = rooms.find(r => r.id === activeRoomId);
+      if (!confirm(`Clear all collected data for "${room ? room.name : activeRoomId}"?`)) return;
+      
+      // Wipe closed intervals and live snapshot for this room
+      roomIntervals[activeRoomId] = [];
+      roomSamples[activeRoomId] = [];
+      rfSamples = [];
+      
+      // Start a fresh open interval for this room exactly from NOW, ignoring all past server data
+      activeRoomStartTime = globalLatestTimestamp > 0 ? globalLatestTimestamp : (Date.now() / 1000);
+      
+      buildRFSamples();
+      showRoomDataStatus(`Cleared data for "${room ? room.name : 'room'}"`);
+    });
+
+    document.getElementById('btn-clear-all-rooms').addEventListener('click', () => {
+      if (!confirm('Clear ALL room data? This removes every frozen snapshot.')) return;
+      
+      roomIntervals = {};
+      rooms.forEach(r => roomSamples[r.id] = []);
+      rfSamples = [];
+      activeRoomStartTime = globalLatestTimestamp > 0 ? globalLatestTimestamp : (Date.now() / 1000);
+      
+      buildRFSamples();
+      showRoomDataStatus('All room data cleared');
+    });
+
+    // ─────────────────────────────────────────────────────────────
     // Bootstrap — load layout list & active layout from Pi
     // ─────────────────────────────────────────────────────────────
     (async function bootstrap() {
@@ -1756,6 +1914,7 @@
       animate();
       fetchRFData();
     })();
+
 
   </script>
 </body>

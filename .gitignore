@@ -2,3 +2,6 @@ results
 DeepPanoContext(github-1)/
 holistic_scene_parsing(github-2)/
 data(github-3)
+
+# Local tools downloaded for project inspection
+.dist/project_review/dependencies/

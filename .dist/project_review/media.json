@@ -1,0 +1,276 @@
+[
+  {
+    "path": "architecture.png",
+    "size": [
+      1536,
+      1024
+    ],
+    "format": "PNG",
+    "frames": 1
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/demo/input/Merom_1_int-00009.png",
+    "size": [
+      1024,
+      512
+    ],
+    "format": "PNG",
+    "frames": 1
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/demo/output/det3d.png",
+    "size": [
+      1024,
+      512
+    ],
+    "format": "PNG",
+    "frames": 1
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/demo/output/render.png",
+    "size": [
+      1024,
+      512
+    ],
+    "format": "PNG",
+    "frames": 1
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/demo/output/rgb.png",
+    "size": [
+      1024,
+      512
+    ],
+    "format": "PNG",
+    "frames": 1
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/demo/output/visual.png",
+    "size": [
+      1024,
+      512
+    ],
+    "format": "PNG",
+    "frames": 1
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/Equirec2Perspec/src/image.jpg",
+    "size": [
+      6656,
+      3328
+    ],
+    "format": "JPEG",
+    "frames": 1
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/Equirec2Perspec/src/perspective.jpg",
+    "size": [
+      1080,
+      720
+    ],
+    "format": "JPEG",
+    "frames": 1
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/mesh_fusion/screenshot.jpg",
+    "size": [
+      1200,
+      484
+    ],
+    "format": "JPEG",
+    "frames": 1
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/py360convert/assert/cube_dice.png",
+    "size": [
+      1024,
+      768
+    ],
+    "format": "PNG",
+    "frames": 1
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/py360convert/assert/cube_horizon.png",
+    "size": [
+      1536,
+      256
+    ],
+    "format": "PNG",
+    "frames": 1
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/py360convert/assert/demo_cube.png",
+    "size": [
+      1024,
+      768
+    ],
+    "format": "PNG",
+    "frames": 1
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/py360convert/assert/demo_equirec.png",
+    "size": [
+      1024,
+      512
+    ],
+    "format": "PNG",
+    "frames": 1
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/py360convert/assert/demo_pers.png",
+    "size": [
+      256,
+      256
+    ],
+    "format": "PNG",
+    "frames": 1
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/py360convert/assert/example_c2e.png",
+    "size": [
+      800,
+      400
+    ],
+    "format": "PNG",
+    "frames": 1
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/py360convert/assert/example_e2c.png",
+    "size": [
+      800,
+      600
+    ],
+    "format": "PNG",
+    "frames": 1
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/py360convert/assert/example_e2p.png",
+    "size": [
+      300,
+      300
+    ],
+    "format": "PNG",
+    "frames": 1
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/py360convert/assert/example_input.png",
+    "size": [
+      800,
+      400
+    ],
+    "format": "PNG",
+    "frames": 1
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/py360convert/assert/teaser_2planar.png",
+    "size": [
+      611,
+      196
+    ],
+    "format": "PNG",
+    "frames": 1
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/py360convert/assert/teaser_convertion.png",
+    "size": [
+      724,
+      194
+    ],
+    "format": "PNG",
+    "frames": 1
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/images/pipeline_anim.gif",
+    "size": [
+      1500,
+      553
+    ],
+    "format": "GIF",
+    "frames": 265
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/images/teaser.png",
+    "size": [
+      1340,
+      445
+    ],
+    "format": "PNG",
+    "frames": 1
+  },
+  {
+    "path": "holistic_scene_parsing(github-2)/holistic_scene_parsing-master/doc/teaser.png",
+    "size": [
+      980,
+      538
+    ],
+    "format": "PNG",
+    "frames": 1
+  },
+  {
+    "path": "image.png",
+    "size": [
+      1919,
+      1199
+    ],
+    "format": "PNG",
+    "frames": 1
+  },
+  {
+    "path": "result1.png",
+    "size": [
+      1888,
+      1196
+    ],
+    "format": "PNG",
+    "frames": 1
+  },
+  {
+    "path": "result2.png",
+    "size": [
+      1919,
+      1199
+    ],
+    "format": "PNG",
+    "frames": 1
+  },
+  {
+    "path": "result4.png",
+    "size": [
+      1893,
+      1101
+    ],
+    "format": "PNG",
+    "frames": 1
+  },
+  {
+    "path": "Screenshot 2026-04-21 165500.png",
+    "size": [
+      1916,
+      1148
+    ],
+    "format": "PNG",
+    "frames": 1
+  },
+  {
+    "path": "3D_WIFI_render_result.mp4",
+    "metadata": {
+      "ffmpeg_version": "9.0.2-essentials_build-www.gyan.dev built with gcc 16.2.0 (Rev3, Built by MSYS2 project)",
+      "codec": "h264",
+      "pix_fmt": "yuv420p(progressive)",
+      "audio_codec": "aac",
+      "fps": 30.0,
+      "source_size": [
+        1920,
+        1200
+      ],
+      "size": [
+        640,
+        400
+      ],
+      "rotate": 0,
+      "duration": 55.63
+    },
+    "decoded_frames": 1669,
+    "retained_frames": 13
+  }
+]

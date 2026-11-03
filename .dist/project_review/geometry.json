@@ -1,0 +1,137 @@
+[
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/ldif2mesh/test-ldif-output.ply",
+    "vertices": 61464,
+    "faces": 20488,
+    "bounds_min": [
+      49.48912048339844,
+      25.200725555419922,
+      45.44169235229492
+    ],
+    "bounds_max": [
+      90.48542785644531,
+      106.13037872314453,
+      81.87345886230469
+    ]
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/ldif2mesh/test-ldif.ply",
+    "vertices": 10254,
+    "faces": 20520,
+    "bounds_min": [
+      -0.1717042475938797,
+      -0.45584553480148315,
+      -0.21892498433589935
+    ],
+    "bounds_max": [
+      0.30646812915802,
+      0.488193154335022,
+      0.20723962783813477
+    ]
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/ldif2mesh/test-sif-output.ply",
+    "vertices": 63144,
+    "faces": 21048,
+    "bounds_min": [
+      49.13618087768555,
+      21.02210235595703,
+      44.766292572021484
+    ],
+    "bounds_max": [
+      90.6740493774414,
+      106.32170104980469,
+      82.23815155029297
+    ]
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/ldif2mesh/test-sif.ply",
+    "vertices": 10454,
+    "faces": 20908,
+    "bounds_min": [
+      -0.17668569087982178,
+      -0.5068824291229248,
+      -0.22766469419002533
+    ],
+    "bounds_max": [
+      0.3088858723640442,
+      0.4914596378803253,
+      0.21002814173698425
+    ]
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/mesh_fusion/examples/0_in/chair_0890.off",
+    "vertices": 1658,
+    "faces": 2996,
+    "bounds_min": [
+      0.0119026,
+      -0.878664,
+      -0.0060665
+    ],
+    "bounds_max": [
+      23.0248,
+      22.6489,
+      31.8025
+    ]
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/mesh_fusion/examples/0_in/chair_0891.off",
+    "vertices": 14396,
+    "faces": 4821,
+    "bounds_min": [
+      -0.590647,
+      -20.0222,
+      -0.0012087
+    ],
+    "bounds_max": [
+      20.8258,
+      0.0060836,
+      38.1103
+    ]
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/mesh_fusion/examples/0_in/chair_0892.off",
+    "vertices": 3318,
+    "faces": 2899,
+    "bounds_min": [
+      -12.60735,
+      -14.6917,
+      -24.75871
+    ],
+    "bounds_max": [
+      12.60735,
+      14.6917,
+      24.75871
+    ]
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/mesh_fusion/examples/0_in/chair_0893.off",
+    "vertices": 4182,
+    "faces": 4230,
+    "bounds_min": [
+      -8.86897,
+      -1.64011,
+      -0.178068
+    ],
+    "bounds_max": [
+      24.7667,
+      26.0695,
+      40.1593
+    ]
+  },
+  {
+    "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/mesh_fusion/examples/0_in/chair_0894.off",
+    "vertices": 181214,
+    "faces": 65780,
+    "bounds_min": [
+      -990.899,
+      -998.258,
+      -5.92776
+    ],
+    "bounds_max": [
+      990.899,
+      1048.23,
+      3039.68
+    ]
+  }
+]

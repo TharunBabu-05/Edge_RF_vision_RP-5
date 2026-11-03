@@ -1,0 +1,378 @@
+[
+  {
+    "path": "/",
+    "function": "index",
+    "line": 2383,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/video",
+    "function": "video_stream",
+    "line": 2388,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/api/networks",
+    "function": "api_networks",
+    "line": 2396,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/api/status",
+    "function": "api_status",
+    "line": 2401,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/api/scan/now",
+    "function": "api_scan_now",
+    "line": 2424,
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "path": "/api/mapper/status",
+    "function": "api_mapper_status",
+    "line": 2441,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/api/mapper/position",
+    "function": "api_mapper_position",
+    "line": 2456,
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "path": "/api/mapper/clear",
+    "function": "api_mapper_clear",
+    "line": 2496,
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "path": "/api/mapper/heatmap",
+    "function": "api_mapper_heatmap",
+    "line": 2502,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/api/mapper/snapshots",
+    "function": "api_mapper_snapshots",
+    "line": 2507,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/api/mapper/save",
+    "function": "api_mapper_save",
+    "line": 2512,
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "path": "/api/mapper/load",
+    "function": "api_mapper_load",
+    "line": 2530,
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "path": "/api/survey/start",
+    "function": "api_survey_start",
+    "line": 2560,
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "path": "/api/survey/status",
+    "function": "api_survey_status",
+    "line": 2599,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/api/survey/capture",
+    "function": "api_survey_capture",
+    "line": 2620,
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "path": "/api/survey/next",
+    "function": "api_survey_next",
+    "line": 2662,
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "path": "/api/survey/reset",
+    "function": "api_survey_reset",
+    "line": 2678,
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "path": "/api/survey/data",
+    "function": "api_survey_data",
+    "line": 2684,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/api/report/png",
+    "function": "api_report_png",
+    "line": 2709,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/api/report/csv",
+    "function": "api_report_csv",
+    "line": 2716,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/api/rf/pose",
+    "function": "api_rf_pose",
+    "line": 2752,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/api/rf/reset_pose",
+    "function": "api_rf_reset_pose",
+    "line": 2766,
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "path": "/api/rf/ssids",
+    "function": "api_rf_ssids",
+    "line": 2772,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/api/rf/samples",
+    "function": "api_rf_samples",
+    "line": 2784,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/api/rf/heatmap",
+    "function": "api_rf_heatmap",
+    "line": 2792,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/api/rf/export/csv",
+    "function": "api_rf_export_csv",
+    "line": 2839,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/api/rf/clear",
+    "function": "api_rf_clear",
+    "line": 2863,
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "path": "/api/rf/db_status",
+    "function": "api_rf_db_status",
+    "line": 2869,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/api/rf/floorplan",
+    "function": "api_rf_floorplan_get",
+    "line": 2889,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/api/rf/floorplan/rebuild",
+    "function": "api_rf_floorplan_rebuild",
+    "line": 2918,
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "path": "/api/rf/render3d",
+    "function": "api_rf_render3d",
+    "line": 2938,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/api/rooms/layouts",
+    "function": "list_room_layouts",
+    "line": 3016,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/api/rooms/layout",
+    "function": "get_room_layout",
+    "line": 3026,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/api/rooms/layout",
+    "function": "save_room_layout",
+    "line": 3039,
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "path": "/api/rooms/layout/delete",
+    "function": "delete_room_layout",
+    "line": 3057,
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "path": "/api/rooms/layout/rename",
+    "function": "rename_room_layout",
+    "line": 3078,
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "path": "/3dmap",
+    "function": "page_3dmap",
+    "line": 3099,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/scene",
+    "function": "page_scene_viewer",
+    "line": 3114,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/api/scene/start",
+    "function": "api_scene_start",
+    "line": 3122,
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "path": "/api/scene/shot/<direction>",
+    "function": "api_scene_shot",
+    "line": 3133,
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "path": "/api/scene/reconstruct",
+    "function": "api_scene_reconstruct",
+    "line": 3165,
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "path": "/api/scene/status",
+    "function": "api_scene_status",
+    "line": 3190,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/api/scene/geometry",
+    "function": "api_scene_geometry",
+    "line": 3208,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/api/scene/preview/<direction>",
+    "function": "api_scene_preview",
+    "line": 3225,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/api/scene/reset",
+    "function": "api_scene_reset",
+    "line": 3234,
+    "methods": [
+      "POST"
+    ]
+  },
+  {
+    "path": "/api/imu/orientation",
+    "function": "api_imu_orientation",
+    "line": 3245,
+    "methods": [
+      "GET"
+    ]
+  },
+  {
+    "path": "/api/imu/debug",
+    "function": "api_imu_debug",
+    "line": 3260,
+    "methods": [
+      "GET"
+    ]
+  }
+]

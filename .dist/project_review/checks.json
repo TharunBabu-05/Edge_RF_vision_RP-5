@@ -1,0 +1,1342 @@
+{
+  "root_python": [
+    {
+      "path": "app.py",
+      "status": "parse OK"
+    },
+    {
+      "path": "benchmark.py",
+      "status": "parse OK"
+    },
+    {
+      "path": "config.py",
+      "status": "parse OK"
+    },
+    {
+      "path": "depth_estimator.py",
+      "status": "parse OK"
+    },
+    {
+      "path": "furniture_detector.py",
+      "status": "parse OK"
+    },
+    {
+      "path": "guided_survey.py",
+      "status": "parse OK"
+    },
+    {
+      "path": "heatmap_3d_renderer.py",
+      "status": "parse OK"
+    },
+    {
+      "path": "imu_reader.py",
+      "status": "parse OK"
+    },
+    {
+      "path": "main.py",
+      "status": "parse OK"
+    },
+    {
+      "path": "pose_estimator.py",
+      "status": "parse OK"
+    },
+    {
+      "path": "rf_database.py",
+      "status": "parse OK"
+    },
+    {
+      "path": "rf_field.py",
+      "status": "parse OK"
+    },
+    {
+      "path": "rf_interpolator.py",
+      "status": "parse OK"
+    },
+    {
+      "path": "room_reconstructor.py",
+      "status": "parse OK"
+    },
+    {
+      "path": "scene_capture.py",
+      "status": "parse OK"
+    },
+    {
+      "path": "scene_reconstructor.py",
+      "status": "parse OK"
+    },
+    {
+      "path": "signal_processor.py",
+      "status": "parse OK"
+    },
+    {
+      "path": "spatial_mapper.py",
+      "status": "parse OK"
+    },
+    {
+      "path": "test_hardware.py",
+      "status": "parse OK"
+    },
+    {
+      "path": "visualizer.py",
+      "status": "parse OK"
+    },
+    {
+      "path": "wifi_scanner.py",
+      "status": "parse OK"
+    }
+  ],
+  "javascript": [
+    {
+      "source": "scene_3d_viewer.html",
+      "script": 1,
+      "status": 0,
+      "output": ""
+    },
+    {
+      "source": "threejs_viewer.html",
+      "script": 1,
+      "status": 0,
+      "output": ""
+    },
+    {
+      "source": "_build_dashboard_html",
+      "script": 1,
+      "status": 0,
+      "output": ""
+    },
+    {
+      "source": "_build_3dmap_html",
+      "script": 1,
+      "status": 0,
+      "output": ""
+    }
+  ],
+  "directory_groups": {
+    ".dist": {
+      "direct_files": 0,
+      "recursive_files": 0,
+      "bytes": 0
+    },
+    ".git": {
+      "direct_files": 6,
+      "recursive_files": 58,
+      "bytes": 38464024
+    },
+    ".git/hooks": {
+      "direct_files": 14,
+      "recursive_files": 14,
+      "bytes": 25827
+    },
+    ".git/info": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 240
+    },
+    ".git/logs": {
+      "direct_files": 1,
+      "recursive_files": 4,
+      "bytes": 1655
+    },
+    ".git/logs/refs": {
+      "direct_files": 0,
+      "recursive_files": 3,
+      "bytes": 1087
+    },
+    ".git/logs/refs/heads": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 568
+    },
+    ".git/logs/refs/remotes": {
+      "direct_files": 0,
+      "recursive_files": 2,
+      "bytes": 519
+    },
+    ".git/logs/refs/remotes/origin": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 519
+    },
+    ".git/objects": {
+      "direct_files": 0,
+      "recursive_files": 29,
+      "bytes": 38431920
+    },
+    ".git/objects/06": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 2448
+    },
+    ".git/objects/11": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 38691
+    },
+    ".git/objects/17": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 3852
+    },
+    ".git/objects/2e": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 31867937
+    },
+    ".git/objects/2f": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 85
+    },
+    ".git/objects/35": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 10271
+    },
+    ".git/objects/36": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 4884
+    },
+    ".git/objects/56": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 2809
+    },
+    ".git/objects/7e": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 5343
+    },
+    ".git/objects/82": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 4615
+    },
+    ".git/objects/86": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 288
+    },
+    ".git/objects/90": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 1485951
+    },
+    ".git/objects/a2": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 175
+    },
+    ".git/objects/a3": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 1224
+    },
+    ".git/objects/b2": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 47209
+    },
+    ".git/objects/c0": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 54
+    },
+    ".git/objects/d5": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 43921
+    },
+    ".git/objects/d6": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 15611
+    },
+    ".git/objects/dc": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 532
+    },
+    ".git/objects/ef": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 20430
+    },
+    ".git/objects/f2": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 187
+    },
+    ".git/objects/f4": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 21448
+    },
+    ".git/objects/f6": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 17490
+    },
+    ".git/objects/info": {
+      "direct_files": 0,
+      "recursive_files": 0,
+      "bytes": 0
+    },
+    ".git/objects/pack": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 4836465
+    },
+    ".git/refs": {
+      "direct_files": 0,
+      "recursive_files": 4,
+      "bytes": 153
+    },
+    ".git/refs/codex": {
+      "direct_files": 0,
+      "recursive_files": 1,
+      "bytes": 41
+    },
+    ".git/refs/codex/turn-diffs": {
+      "direct_files": 0,
+      "recursive_files": 1,
+      "bytes": 41
+    },
+    ".git/refs/codex/turn-diffs/captures": {
+      "direct_files": 0,
+      "recursive_files": 1,
+      "bytes": 41
+    },
+    ".git/refs/codex/turn-diffs/captures/1793720904395": {
+      "direct_files": 0,
+      "recursive_files": 1,
+      "bytes": 41
+    },
+    ".git/refs/codex/turn-diffs/captures/1793720904395/48c2b254-fe40-4980-b4ce-1beb1bd8618e": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 41
+    },
+    ".git/refs/heads": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 41
+    },
+    ".git/refs/remotes": {
+      "direct_files": 0,
+      "recursive_files": 2,
+      "bytes": 71
+    },
+    ".git/refs/remotes/origin": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 71
+    },
+    ".git/refs/tags": {
+      "direct_files": 0,
+      "recursive_files": 0,
+      "bytes": 0
+    },
+    "__pycache__": {
+      "direct_files": 7,
+      "recursive_files": 7,
+      "bytes": 199395
+    },
+    "DeepPanoContext(github-1)": {
+      "direct_files": 0,
+      "recursive_files": 953,
+      "bytes": 102950928
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main": {
+      "direct_files": 12,
+      "recursive_files": 953,
+      "bytes": 102950928
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/configs": {
+      "direct_files": 9,
+      "recursive_files": 9,
+      "bytes": 24927
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/demo": {
+      "direct_files": 0,
+      "recursive_files": 6,
+      "bytes": 2654937
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/demo/input": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 629180
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/demo/output": {
+      "direct_files": 4,
+      "recursive_files": 4,
+      "bytes": 2025757
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external": {
+      "direct_files": 2,
+      "recursive_files": 837,
+      "bytes": 79607861
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/cooperative_scene_parsing": {
+      "direct_files": 0,
+      "recursive_files": 49,
+      "bytes": 54604525
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/cooperative_scene_parsing/evaluation": {
+      "direct_files": 0,
+      "recursive_files": 49,
+      "bytes": 54604525
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/cooperative_scene_parsing/evaluation/detection": {
+      "direct_files": 5,
+      "recursive_files": 5,
+      "bytes": 10293
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/cooperative_scene_parsing/evaluation/SUNRGBDtoolbox": {
+      "direct_files": 2,
+      "recursive_files": 14,
+      "bytes": 33029119
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/cooperative_scene_parsing/evaluation/SUNRGBDtoolbox/mBB": {
+      "direct_files": 8,
+      "recursive_files": 8,
+      "bytes": 38609
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/cooperative_scene_parsing/evaluation/SUNRGBDtoolbox/Metadata": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 32826170
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/cooperative_scene_parsing/evaluation/SUNRGBDtoolbox/traintestSUNRGBD": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 162262
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/cooperative_scene_parsing/evaluation/vis": {
+      "direct_files": 9,
+      "recursive_files": 30,
+      "bytes": 21565113
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/cooperative_scene_parsing/evaluation/vis/draw": {
+      "direct_files": 9,
+      "recursive_files": 9,
+      "bytes": 11355
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/cooperative_scene_parsing/evaluation/vis/mBB": {
+      "direct_files": 8,
+      "recursive_files": 8,
+      "bytes": 38736
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/cooperative_scene_parsing/evaluation/vis/readData": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 1488
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/cooperative_scene_parsing/evaluation/vis/utils": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 444
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/Equirec2Perspec": {
+      "direct_files": 4,
+      "recursive_files": 6,
+      "bytes": 2919660
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/Equirec2Perspec/src": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 2915763
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/frustum_convnet": {
+      "direct_files": 0,
+      "recursive_files": 1,
+      "bytes": 1578
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/frustum_convnet/train": {
+      "direct_files": 0,
+      "recursive_files": 1,
+      "bytes": 1578
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/frustum_convnet/train/sunrgbd_eval": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 1578
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/HorizonNet": {
+      "direct_files": 15,
+      "recursive_files": 23,
+      "bytes": 141417
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/HorizonNet/misc": {
+      "direct_files": 8,
+      "recursive_files": 8,
+      "bytes": 57588
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif": {
+      "direct_files": 1,
+      "recursive_files": 668,
+      "bytes": 12021916
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps": {
+      "direct_files": 4,
+      "recursive_files": 642,
+      "bytes": 9062121
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps": {
+      "direct_files": 2,
+      "recursive_files": 111,
+      "bytes": 1383941
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/conf2conf": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 28878
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/conf2img": {
+      "direct_files": 6,
+      "recursive_files": 6,
+      "bytes": 138585
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/confview": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 43412
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/gapsview": {
+      "direct_files": 4,
+      "recursive_files": 4,
+      "bytes": 39676
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/grd2grd": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 22143
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/grd2msh": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 11500
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/grd2pts": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 18574
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/grd2txt": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 9748
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/grdview": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 26259
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/img2img": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 7122
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/msh2df": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 35235
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/msh2grd": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 13367
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/msh2msh": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 25911
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/msh2prp": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 70203
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/msh2pts": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 67574
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/mshalign": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 42820
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/mshinfo": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 9167
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/mshparam": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 21364
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/mshsegment": {
+      "direct_files": 4,
+      "recursive_files": 4,
+      "bytes": 85891
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/mshview": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 30125
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/pfm2pfm": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 41584
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/pfminfo": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 1874
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/pfmview": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 15896
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/prp2prp": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 29167
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/prpview": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 35756
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/ptsview": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 24780
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/qview": {
+      "direct_files": 8,
+      "recursive_files": 8,
+      "bytes": 72100
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/scn2cam": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 67940
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/scn2grd": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 7860
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/scn2img": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 53757
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/scn2scn": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 15361
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/scninfo": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 22577
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/scnview": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 39799
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/sfl2img": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 71723
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/sfl2sfl": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 6047
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/sflinfo": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 27539
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/sflinit": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 4389
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/sflprocess": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 76822
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/apps/sflview": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 18885
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/docs": {
+      "direct_files": 5,
+      "recursive_files": 9,
+      "bytes": 14761
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/docs/headers": {
+      "direct_files": 4,
+      "recursive_files": 4,
+      "bytes": 9956
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/makefiles": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 4192
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/pkgs": {
+      "direct_files": 2,
+      "recursive_files": 504,
+      "bytes": 7315487
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/pkgs/fglut": {
+      "direct_files": 41,
+      "recursive_files": 41,
+      "bytes": 1115748
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/pkgs/jpeg": {
+      "direct_files": 62,
+      "recursive_files": 62,
+      "bytes": 1013639
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/pkgs/png": {
+      "direct_files": 54,
+      "recursive_files": 54,
+      "bytes": 1405262
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/pkgs/R2Shapes": {
+      "direct_files": 69,
+      "recursive_files": 69,
+      "bytes": 509470
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/pkgs/R3Graphics": {
+      "direct_files": 37,
+      "recursive_files": 37,
+      "bytes": 329785
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/pkgs/R3Shapes": {
+      "direct_files": 99,
+      "recursive_files": 99,
+      "bytes": 1342612
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/pkgs/R3Surfels": {
+      "direct_files": 59,
+      "recursive_files": 59,
+      "bytes": 790192
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/pkgs/RGBD": {
+      "direct_files": 15,
+      "recursive_files": 15,
+      "bytes": 213992
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/pkgs/RNBasics": {
+      "direct_files": 46,
+      "recursive_files": 46,
+      "bytes": 409751
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/pkgs/RNMath": {
+      "direct_files": 20,
+      "recursive_files": 20,
+      "bytes": 183716
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/vc": {
+      "direct_files": 3,
+      "recursive_files": 11,
+      "bytes": 340703
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/vc/glut": {
+      "direct_files": 4,
+      "recursive_files": 5,
+      "bytes": 321426
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/vc/glut/GL": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 27004
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/vc/makefiles": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 2842
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/inference": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 7143
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/ldif2mesh": {
+      "direct_files": 13,
+      "recursive_files": 13,
+      "bytes": 2922476
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/representation": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 10629
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/util": {
+      "direct_files": 7,
+      "recursive_files": 7,
+      "bytes": 19547
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/mesh_fusion": {
+      "direct_files": 7,
+      "recursive_files": 52,
+      "bytes": 9252900
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/mesh_fusion/examples": {
+      "direct_files": 0,
+      "recursive_files": 5,
+      "bytes": 6861661
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/mesh_fusion/examples/0_in": {
+      "direct_files": 5,
+      "recursive_files": 5,
+      "bytes": 6861661
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/mesh_fusion/libfusioncpu": {
+      "direct_files": 9,
+      "recursive_files": 9,
+      "bytes": 22535
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/mesh_fusion/libfusiongpu": {
+      "direct_files": 11,
+      "recursive_files": 11,
+      "bytes": 1039850
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/mesh_fusion/libmcubes": {
+      "direct_files": 13,
+      "recursive_files": 13,
+      "bytes": 299272
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/mesh_fusion/librender": {
+      "direct_files": 7,
+      "recursive_files": 7,
+      "bytes": 884644
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/panoramic_object_detection": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 768
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/PIFu": {
+      "direct_files": 1,
+      "recursive_files": 4,
+      "bytes": 5955
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/PIFu/lib": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 5949
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/py360convert": {
+      "direct_files": 7,
+      "recursive_files": 23,
+      "bytes": 641126
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/py360convert/assert": {
+      "direct_files": 11,
+      "recursive_files": 11,
+      "bytes": 619054
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/py360convert/py360convert": {
+      "direct_files": 5,
+      "recursive_files": 5,
+      "bytes": 11490
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/pyTorchChamferDistance": {
+      "direct_files": 4,
+      "recursive_files": 8,
+      "bytes": 15454
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/external/pyTorchChamferDistance/chamfer_distance": {
+      "direct_files": 4,
+      "recursive_files": 4,
+      "bytes": 13437
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/images": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 19575593
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/models": {
+      "direct_files": 9,
+      "recursive_files": 64,
+      "bytes": 817462
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/models/detector": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 3423
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/models/ldif": {
+      "direct_files": 6,
+      "recursive_files": 10,
+      "bytes": 22368
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/models/ldif/modules": {
+      "direct_files": 4,
+      "recursive_files": 4,
+      "bytes": 12070
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/models/mgnet": {
+      "direct_files": 4,
+      "recursive_files": 8,
+      "bytes": 582474
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/models/mgnet/modules": {
+      "direct_files": 4,
+      "recursive_files": 4,
+      "bytes": 576645
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/models/modules": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 9664
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/models/multi_view": {
+      "direct_files": 6,
+      "recursive_files": 11,
+      "bytes": 31648
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/models/multi_view/modules": {
+      "direct_files": 5,
+      "recursive_files": 5,
+      "bytes": 20192
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/models/pano3d": {
+      "direct_files": 6,
+      "recursive_files": 13,
+      "bytes": 120951
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/models/pano3d/modules": {
+      "direct_files": 7,
+      "recursive_files": 7,
+      "bytes": 84989
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/models/total3d": {
+      "direct_files": 5,
+      "recursive_files": 8,
+      "bytes": 19917
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/models/total3d/modules": {
+      "direct_files": 3,
+      "recursive_files": 3,
+      "bytes": 10235
+    },
+    "DeepPanoContext(github-1)/DeepPanoContext-main/utils": {
+      "direct_files": 22,
+      "recursive_files": 22,
+      "bytes": 220954
+    },
+    "holistic_scene_parsing(github-2)": {
+      "direct_files": 0,
+      "recursive_files": 26,
+      "bytes": 2658837
+    },
+    "holistic_scene_parsing(github-2)/holistic_scene_parsing-master": {
+      "direct_files": 13,
+      "recursive_files": 26,
+      "bytes": 2658837
+    },
+    "holistic_scene_parsing(github-2)/holistic_scene_parsing-master/doc": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 328467
+    },
+    "holistic_scene_parsing(github-2)/holistic_scene_parsing-master/osmesa": {
+      "direct_files": 10,
+      "recursive_files": 10,
+      "bytes": 245730
+    },
+    "holistic_scene_parsing(github-2)/holistic_scene_parsing-master/utils": {
+      "direct_files": 2,
+      "recursive_files": 2,
+      "bytes": 26330
+    },
+    "models": {
+      "direct_files": 1,
+      "recursive_files": 1,
+      "bytes": 842
+    },
+    "scene_images": {
+      "direct_files": 0,
+      "recursive_files": 0,
+      "bytes": 0
+    },
+    "scene_output": {
+      "direct_files": 0,
+      "recursive_files": 0,
+      "bytes": 0
+    }
+  },
+  "binary_headers": [
+    {
+      "path": "3D_WIFI_render_result.mp4",
+      "bytes": 35045436,
+      "header_hex": "00000018667479706d703432000000006d70343169736f6d",
+      "printable_header": "....ftypmp42....mp41isom...(uuid\\...2.B..ae.........10.0.26200.0..5.mdat.................3../..aP.pAr.2H..*=4Microsoft H.264 Enc"
+    },
+    {
+      "path": "__pycache__/app.cpython-310.pyc",
+      "bytes": 128472,
+      "header_hex": "6f0d0d0a00000000e296676a3a410200e300000000000000",
+      "printable_header": "o.........gj:A.......................@...s....U.d.Z.d.d.l.m.Z...d.d.l.Z.d.d.l.Z.d.d.l.Z.d.d.l.Z.d.d.l.Z.d.d.l.Z.d.d.l.Z.d.d.l.m."
+    },
+    {
+      "path": "__pycache__/config.cpython-310.pyc",
+      "bytes": 1734,
+      "header_hex": "6f0d0d0a0000000089d01a6a89090000e300000000000000",
+      "printable_header": "o..........j.........................@...s....d.Z.d.Z.d.Z.d.Z.d.Z.d.Z.d.Z.d.Z.d.Z.d.Z.d.Z.d.Z.d.Z.d.Z.d.Z.d.Z.d.Z.d.Z.d.Z.d.Z.d."
+    },
+    {
+      "path": "__pycache__/heatmap_3d_renderer.cpython-310.pyc",
+      "bytes": 15929,
+      "header_hex": "6f0d0d0a00000000ab141b6a634b0000e300000000000000",
+      "printable_header": "o..........jcK.......................@...s....d.Z.d.d.l.m.Z...d.d.l.Z.d.d.l.Z.d.d.l.Z.d.d.l.m.Z.m.Z.m.Z...d.d.l.Z.d.d.l.m.Z.m.Z."
+    },
+    {
+      "path": "__pycache__/pose_estimator.cpython-310.pyc",
+      "bytes": 13520,
+      "header_hex": "6f0d0d0a000000002bd01a6ad1440000e300000000000000",
+      "printable_header": "o.......+..j.D.......................@...s....d.Z.d.d.l.m.Z...d.d.l.Z.d.d.l.Z.d.d.l.Z.d.d.l.m.Z.m.Z...d.d.l.m.Z.m.Z.m.Z...d.d.l."
+    },
+    {
+      "path": "__pycache__/rf_database.cpython-310.pyc",
+      "bytes": 13556,
+      "header_hex": "6f0d0d0a000000002dd01a6ad23a0000e300000000000000",
+      "printable_header": "o.......-..j.:.......................@...s....d.Z.d.d.l.m.Z...d.d.l.Z.d.d.l.Z.d.d.l.Z.d.d.l.Z.d.d.l.Z.d.d.l.Z.d.d.l.m.Z.m.Z...d."
+    },
+    {
+      "path": "__pycache__/rf_interpolator.cpython-310.pyc",
+      "bytes": 14092,
+      "header_hex": "6f0d0d0a0000000087d01a6a3a410000e300000000000000",
+      "printable_header": "o..........j:A.......................@...sH...d.Z.d.d.l.m.Z...d.d.l.Z.d.d.l.Z.d.d.l.Z.d.d.l.m.Z.m.Z.m.Z...d.d.l.Z.d.d.l.Z.d.d.l."
+    },
+    {
+      "path": "__pycache__/room_reconstructor.cpython-310.pyc",
+      "bytes": 12092,
+      "header_hex": "6f0d0d0a00000000a6141b6ab02e0000e300000000000000",
+      "printable_header": "o..........j.........................@...s....d.Z.d.d.l.m.Z...d.d.l.Z.d.d.l.Z.d.d.l.Z.d.d.l.Z.d.d.l.m.Z.m.Z.m.Z...d.d.l.m.Z...d."
+    },
+    {
+      "path": "architecture.png",
+      "bytes": 1854353,
+      "header_hex": "89504e470d0a1a0a0000000d494844520000060000000400",
+      "printable_header": ".PNG........IHDR...................q.caBX..q.jumb....jumdc2pa.........8.q.c2pa...qujumb...Gjumdc2ma.........8.q.urn:c2pa:3815b6e"
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/demo/input/Merom_1_int-00009.png",
+      "bytes": 619327,
+      "header_hex": "89504e470d0a1a0a0000000d494844520000040000000200",
+      "printable_header": ".PNG........IHDR.....................IDATx...[.$9.$..T..w.k....l.v.....@@U.....>=s.*=..T..... .................................."
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/demo/output/det3d.png",
+      "bytes": 644698,
+      "header_hex": "89504e470d0a1a0a0000000d494844520000040000000200",
+      "printable_header": ".PNG........IHDR.....................IDATx...[.$9.$..T..w.k....l.v.....@@U.....>=s.*=..T..... .................................."
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/demo/output/render.png",
+      "bytes": 124494,
+      "header_hex": "89504e470d0a1a0a0000000d494844520000040000000200",
+      "printable_header": ".PNG........IHDR.....................IDATx...w..IV..}..e..ZRK-7.H...z7...,k..cY..8....;..w.....`9XX....X....{?#..k...3#...4.Y..."
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/demo/output/rgb.png",
+      "bytes": 619327,
+      "header_hex": "89504e470d0a1a0a0000000d494844520000040000000200",
+      "printable_header": ".PNG........IHDR.....................IDATx...[.$9.$..T..w.k....l.v.....@@U.....>=s.*=..T..... .................................."
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/demo/output/visual.png",
+      "bytes": 637238,
+      "header_hex": "89504e470d0a1a0a0000000d494844520000040000000200",
+      "printable_header": ".PNG........IHDR.....................IDATx......8.,..T.>......0?x:D..`..%....>{.QwE..%^@\\. H.............T.....{*..............t"
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/cooperative_scene_parsing/evaluation/SUNRGBDtoolbox/mBB/PolygonClip.dll",
+      "bytes": 28672,
+      "header_hex": "4d5a90000300000004000000ffff0000b800000000000000",
+      "printable_header": "MZ......................@...............................................!..L.!This program cannot be run in DOS mode....$......."
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/cooperative_scene_parsing/evaluation/SUNRGBDtoolbox/Metadata/groundtruth.mat",
+      "bytes": 8420732,
+      "header_hex": "4d41544c414220352e30204d41542d66696c652c20506c61",
+      "printable_header": "MATLAB 5.0 MAT-file, Platform: GLNXA64, Created on: Tue May  5 14:02:27 2015                                        ..........IM"
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/cooperative_scene_parsing/evaluation/SUNRGBDtoolbox/Metadata/SUNRGBDMeta.mat",
+      "bytes": 14532382,
+      "header_hex": "4d41544c414220352e30204d41542d66696c652c20506c61",
+      "printable_header": "MATLAB 5.0 MAT-file, Platform: GLNXA64, Created on: Tue May  5 14:02:23 2015                                        ..........IM"
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/cooperative_scene_parsing/evaluation/SUNRGBDtoolbox/Metadata/SUNRGBDMeta3DBB_v2.mat",
+      "bytes": 9873056,
+      "header_hex": "4d41544c414220352e30204d41542d66696c652c20506c61",
+      "printable_header": "MATLAB 5.0 MAT-file, Platform: MACI64, Created on: Fri Apr  7 15:02:42 2017                                         ..........IM"
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/cooperative_scene_parsing/evaluation/SUNRGBDtoolbox/traintestSUNRGBD/allsplit.mat",
+      "bytes": 162262,
+      "header_hex": "4d41544c414220352e30204d41542d66696c652c20506c61",
+      "printable_header": "MATLAB 5.0 MAT-file, Platform: MACI64, Created on: Sat Mar 14 17:16:15 2015                                         ..........IM"
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/cooperative_scene_parsing/evaluation/vis/igibson_colorbox.mat",
+      "bytes": 1640,
+      "header_hex": "4d41544c414220352e30204d41542d66696c6520506c6174",
+      "printable_header": "MATLAB 5.0 MAT-file Platform: posix, Created on: Wed Mar 17 15:08:46 2021.....................................................IM"
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/cooperative_scene_parsing/evaluation/vis/mBB/PolygonClip.dll",
+      "bytes": 28672,
+      "header_hex": "4d5a90000300000004000000ffff0000b800000000000000",
+      "printable_header": "MZ......................@...............................................!..L.!This program cannot be run in DOS mode....$......."
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/cooperative_scene_parsing/evaluation/vis/nyu_colorbox.mat",
+      "bytes": 1184,
+      "header_hex": "4d41544c414220352e30204d41542d66696c6520506c6174",
+      "printable_header": "MATLAB 5.0 MAT-file Platform: posix, Created on: Fri Nov 13 19:31:48 2020.....................................................IM"
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/cooperative_scene_parsing/evaluation/vis/SUNRGBDMeta37.mat",
+      "bytes": 6754894,
+      "header_hex": "4d41544c414220352e30204d41542d66696c6520506c6174",
+      "printable_header": "MATLAB 5.0 MAT-file Platform: posix, Created on: Sat Nov 21 15:11:10 2020.....................................................IM"
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/cooperative_scene_parsing/evaluation/vis/SUNRGBDMetaUS.mat",
+      "bytes": 14743265,
+      "header_hex": "4d41544c414220352e30204d41542d66696c652c20506c61",
+      "printable_header": "MATLAB 5.0 MAT-file, Platform: GLNXA64, Created on: Wed Nov  1 15:54:12 2017                                        ..........IM"
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/Equirec2Perspec/src/image.jpg",
+      "bytes": 2637025,
+      "header_hex": "ffd8ffe000104a46494600010100000100010000ffdb0043",
+      "printable_header": "......JFIF.............C....................................................................C..................................."
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/Equirec2Perspec/src/perspective.jpg",
+      "bytes": 278738,
+      "header_hex": "ffd8ffe000104a46494600010100000100010000ffdb0043",
+      "printable_header": "......JFIF.............C....................................................................C..................................."
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/vc/glut/glut32.dll",
+      "bytes": 237568,
+      "header_hex": "4d5a90000300000004000000ffff0000b800000000000000",
+      "printable_header": "MZ......................@...............................................!..L.!This program cannot be run in DOS mode....$......."
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/gaps/vc/glut/glut32.lib",
+      "bytes": 28728,
+      "header_hex": "213c617263683e0a2f202020202020202020202020202020",
+      "printable_header": "!<arch>./               1005211635              0       6674      `.......6...9...:...>N..>N..>...>...?,..?,..?...?...@...@...@|"
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/ldif2mesh/extracted.occnet",
+      "bytes": 34468,
+      "header_hex": "01000000200000008585ebbcabf375bf8a80543b5da3f1bd",
+      "printable_header": ".... .........u...T;]...A....e.<`.f9.b..nw.?%....]0...t?...?...?..Q?..]=_.H?.[............c....?.13<......:.1..<J......?.......="
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/ldif2mesh/test-ldif-output.ply",
+      "bytes": 1004089,
+      "header_hex": "706c790a666f726d61742062696e6172795f6c6974746c65",
+      "printable_header": "ply.format binary_little_endian 1.0.element vertex 61464.property float x.property float y.property float z.element face 20488.p"
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/ldif2mesh/test-ldif.ply",
+      "bytes": 390019,
+      "header_hex": "706c790a666f726d61742062696e6172795f6c6974746c65",
+      "printable_header": "ply.format binary_little_endian 1.0.comment github.com/mikedh/trimesh.element vertex 10254.property float x.property float y.pro"
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/ldif2mesh/test-sif-output.ply",
+      "bytes": 1031529,
+      "header_hex": "706c790a666f726d61742062696e6172795f6c6974746c65",
+      "printable_header": "ply.format binary_little_endian 1.0.element vertex 63144.property float x.property float y.property float z.element face 21048.p"
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/ldif/ldif2mesh/test-sif.ply",
+      "bytes": 397463,
+      "header_hex": "706c790a666f726d61742062696e6172795f6c6974746c65",
+      "printable_header": "ply.format binary_little_endian 1.0.comment github.com/mikedh/trimesh.element vertex 10454.property float x.property float y.pro"
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/mesh_fusion/screenshot.jpg",
+      "bytes": 97215,
+      "header_hex": "ffd8ffe000104a46494600010101004800480000ffdb0043",
+      "printable_header": "......JFIF.....H.H.....C....................................................................C..................................."
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/py360convert/assert/cube_dice.png",
+      "bytes": 107390,
+      "header_hex": "89504e470d0a1a0a0000000d494844520000040000000300",
+      "printable_header": ".PNG........IHDR.....................IDATx...W..gv'..z_.... 9.Y.vF..S..~..R.nh.j4... 1..w..>....0....7...@...:+.Z.9.1..ck.i....."
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/py360convert/assert/cube_horizon.png",
+      "bytes": 98330,
+      "header_hex": "89504e470d0a1a0a0000000d494844520000060000000100",
+      "printable_header": ".PNG........IHDR.............uI......IDATx...io#k..|.K2W.......LO....m..G...7`..........U......P....H..H......J....y\"N.8a...5N.."
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/py360convert/assert/demo_cube.png",
+      "bytes": 12731,
+      "header_hex": "89504e470d0a1a0a0000000d494844520000040000000300",
+      "printable_header": ".PNG........IHDR.............5..Z..1.IDATx...y.v.......=.S..AB.R...\"N..r..=8f.9....P\"..9....8(D.$C$...T*.R.....~.p.....s...{...."
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/py360convert/assert/demo_equirec.png",
+      "bytes": 36873,
+      "header_hex": "89504e470d0a1a0a0000000d494844520000040000000200",
+      "printable_header": ".PNG........IHDR.....................IDATx...w...u7...0../...T.]..^,7.....I..q..'q.;.iNq.......-..mY...z..(J.....w.....`.....2.Y"
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/py360convert/assert/demo_pers.png",
+      "bytes": 19438,
+      "header_hex": "89504e470d0a1a0a0000000d494844520000010000000100",
+      "printable_header": ".PNG........IHDR...............?1..K.IDATx...y.%.]..=U..._.....w..t..V/.%...<&6........L.'.[.H..c.0.......-...!.....2..eY.v.z..."
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/py360convert/assert/example_c2e.png",
+      "bytes": 82218,
+      "header_hex": "89504e470d0a1a0a0000000d494844520000032000000190",
+      "printable_header": ".PNG........IHDR... .........V%.4....IDATx...Wr#.............w...z.c.!.Y.{.>..EBk.....W.3... ...F. Ed.....A....H.\"E..)R.H.\".. .."
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/py360convert/assert/example_e2c.png",
+      "bytes": 77450,
+      "header_hex": "89504e470d0a1a0a0000000d494844520000032000000258",
+      "printable_header": ".PNG........IHDR... ...X......v.p....IDATx.....$w....7UY...x.%w.gu'A.I/ @......;....w..Kr8.]y...?.\"...T.a|...tW....x..O..A.N.,.."
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/py360convert/assert/example_e2p.png",
+      "bytes": 23013,
+      "header_hex": "89504e470d0a1a0a0000000d494844520000012c0000012c",
+      "printable_header": ".PNG........IHDR...,...,.....y}.u..Y.IDATx......J....@H@..m.f}....}1}......b.....'....A1.*...&..2=c........a8..p8.~.o...v..m6..l"
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/py360convert/assert/example_input.png",
+      "bytes": 87080,
+      "header_hex": "89504e470d0a1a0a0000000d494844520000032000000190",
+      "printable_header": ".PNG........IHDR... .........V%.4....gAMA......a.... cHRM..z&..............u0...`..:....p..Q<....pHYs................YiTXtXML:co"
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/py360convert/assert/teaser_2planar.png",
+      "bytes": 42725,
+      "header_hex": "89504e470d0a1a0a0000000d4948445200000263000000c4",
+      "printable_header": ".PNG........IHDR...c..........N&....+iCCPICC Profile..X..y.8U...>......Yf2.$.<.C*.<.5E....dH!.D.FSB..d.P..B.T.Ly.........>.~.}.."
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/external/py360convert/assert/teaser_convertion.png",
+      "bytes": 31806,
+      "header_hex": "89504e470d0a1a0a0000000d49484452000002d4000000c2",
+      "printable_header": ".PNG........IHDR.............i=U_...+iCCPICC Profile..X..y.8U...>......Yf2.$.<.C*.<.5E....dH!.D.FSB..d.P..B.T.Ly.........>.~.}.."
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/images/photo_studio_01_2k.hdr",
+      "bytes": 6375901,
+      "header_hex": "233f52414449414e43450a233f52414449414e43450a4741",
+      "printable_header": "#?RADIANCE.#?RADIANCE.GAMMA=1.PRIMARIES=0 0 0 0 0 0 0 0.FORMAT=32-bit_rle_rgbe..-Y 1024 +X 2048................................."
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/images/pipeline_anim.gif",
+      "bytes": 12473490,
+      "header_hex": "474946383961dc052902f70000010001010101090102090d",
+      "printable_header": "GIF89a..)..................%....!.1!.&&',,,6536I*LE0BBALKJRPQcYSddb;qb.~b+mLSv6U.5F..`..k..gh.N/.O..p4..C..M ./0.X..a.........&."
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/images/teaser.png",
+      "bytes": 726202,
+      "header_hex": "89504e470d0a1a0a0000000d494844520000053c000001bd",
+      "printable_header": ".PNG........IHDR...<.........80......sRGB.........gAMA......a.....pHYs..........o.d....IDATx^....uYz.......Z...[}.KWUWwK.]..!..."
+    },
+    {
+      "path": "DeepPanoContext(github-1)/DeepPanoContext-main/models/mgnet/modules/sphere2562.pkl",
+      "bytes": 564148,
+      "header_hex": "80037d7100285801000000767101636e756d70792e636f72",
+      "printable_header": "..}q.(X....vq.cnumpy.core.multiarray._reconstruct.q.cnumpy.ndarray.q.K..q.C.bq..q.Rq.(K.M..K..q.cnumpy.dtype.q.X....f8q.K.K..q.R"
+    },
+    {
+      "path": "holistic_scene_parsing(github-2)/holistic_scene_parsing-master/doc/teaser.png",
+      "bytes": 328467,
+      "header_hex": "89504e470d0a1a0a0000000d49484452000003d40000021a",
+      "printable_header": ".PNG........IHDR.............N#......sBIT.....O.....tEXtSoftware.gnome-screenshot...>.. .IDATx..}w.%E..9U.....wa.%...%.........."
+    },
+    {
+      "path": "holistic_scene_parsing(github-2)/holistic_scene_parsing-master/osmesa/__init__.pyc",
+      "bytes": 154,
+      "header_hex": "03f30d0af0f9a55963000000000000000001000000400000",
+      "printable_header": ".......Yc............@...s....d..S(....N(....(....(....(....sC.../home/siyuan/Dropbox/Project/cvpr2018/src/python/osmesa/__init_"
+    },
+    {
+      "path": "holistic_scene_parsing(github-2)/holistic_scene_parsing-master/osmesa/osdemo.o",
+      "bytes": 7928,
+      "header_hex": "7f454c4602010100000000000000000001003e0001000000",
+      "printable_header": ".ELF..............>.................................@.....@.....UH..H.. ...E..}..u......H.E.H.E......H.........ZE..U..M.H.E...H."
+    },
+    {
+      "path": "holistic_scene_parsing(github-2)/holistic_scene_parsing-master/osmesa/osmesa.o",
+      "bytes": 41704,
+      "header_hex": "7f454c4602010100000000000000000001003e0001000000",
+      "printable_header": ".ELF..............>.................................@.....@.....UH..H.. H.}.H.u.H.E.H.@.H.E.H.E.H......H........H..t.H.E.H......"
+    },
+    {
+      "path": "holistic_scene_parsing(github-2)/holistic_scene_parsing-master/osmesa/osmesa.so",
+      "bytes": 47520,
+      "header_hex": "7f454c4602010100000000000000000003003e0001000000",
+      "printable_header": ".ELF..............>.....P(......@.......`...........@.8...@......................................w.......w........ ............."
+    },
+    {
+      "path": "image.png",
+      "bytes": 1491302,
+      "header_hex": "89504e470d0a1a0a0000000d494844520000077f000004af",
+      "printable_header": ".PNG........IHDR...............0.....sRGB.........gAMA......a.....pHYs...t...t..f.x....IDATx^..w.e.]..~..'.:..N..U....QD...|...m"
+    },
+    {
+      "path": "result1.png",
+      "bytes": 1077235,
+      "header_hex": "89504e470d0a1a0a0000000d4948445200000760000004ac",
+      "printable_header": ".PNG........IHDR...`.........Y..g....sRGB.........gAMA......a.....pHYs..........o.d....IDATx^..w.......l..w..A:.... b....[0....'"
+    },
+    {
+      "path": "result2.png",
+      "bytes": 877076,
+      "header_hex": "89504e470d0a1a0a0000000d494844520000077f000004af",
+      "printable_header": ".PNG........IHDR...............0.....sRGB.........gAMA......a.....pHYs..........o.d....IDATx^..w`.e.......MBH..B..7A.\"...b...].."
+    },
+    {
+      "path": "result4.png",
+      "bytes": 843034,
+      "header_hex": "89504e470d0a1a0a0000000d49484452000007650000044d",
+      "printable_header": ".PNG........IHDR...e...M.....b.......sRGB.........gAMA......a.....pHYs..........o.d....IDATx^..y..E......9.9Y..I.dAB@@..E......."
+    },
+    {
+      "path": "Screenshot 2026-04-21 165500.png",
+      "bytes": 179580,
+      "header_hex": "89504e470d0a1a0a0000000d494844520000077c0000047c",
+      "printable_header": ".PNG........IHDR...|...|.....vj......sRGB.........gAMA......a.....pHYs..........o.d....IDATx^..g|.U...kZ&.NB...H........R...\"..."
+    }
+  ]
+}
