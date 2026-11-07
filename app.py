@@ -10,6 +10,7 @@ import argparse
 import logging
 import os
 import select
+import sqlite3
 import subprocess
 import threading
 import time
@@ -25,7 +26,7 @@ import config
 from guided_survey import GuidedSurvey
 from heatmap_3d_renderer import Ekahau3DRenderer
 from pose_estimator import PoseEstimate, PoseEstimator
-from rf_database import RFDatabase
+from rf_database import RFDatabase, csv_text
 from rf_field import RFFieldModel
 from rf_interpolator import RFInterpolator
 from room_reconstructor import FloorPlan, FloorPlanReconstructor
@@ -40,6 +41,7 @@ LOGGER = logging.getLogger("app")
 
 # Cached floor plan (rebuilt on demand)
 _floor_plan_cache: Optional[FloorPlan] = None
+_floor_plan_cache_key = None
 _floor_plan_lock = threading.Lock()
 
 # Scene capture singleton (one per server process)
@@ -321,6 +323,12 @@ class RuntimeContext:
     frame_width: int = config.CAMERA_WIDTH
     frame_height: int = config.CAMERA_HEIGHT
     jpeg_quality: int = config.JPEG_QUALITY
+    demo: bool = False
+    recording: bool = True
+    latest_frame: Optional[np.ndarray] = None
+    last_capture_epoch: float = 0.0
+    pipeline_error: Optional[str] = None
+    acquisition_lock: threading.RLock = field(default_factory=threading.RLock)
     start_epoch: float = field(default_factory=time.time)
 
     fps: float = 0.0
@@ -374,6 +382,7 @@ class StreamWorker:
         self._encode_event = threading.Event()
 
         self._raw_lock = threading.Lock()
+        self._encode_buffer_lock = threading.Lock()
         self._latest_raw_frame: Optional[np.ndarray] = None
 
         self._jpeg_lock = threading.Lock()
@@ -409,20 +418,32 @@ class StreamWorker:
 
     def start(self) -> None:
         """Start capture, processing, and encoding threads."""
+        if self._capture_thread and self._capture_thread.is_alive():
+            return
         self._stop_event.clear()
-        self._capture_thread = threading.Thread(target=self._capture_loop, name="capture-thread", daemon=True)
-        self._process_thread = threading.Thread(target=self._process_loop, name="process-thread", daemon=True)
-        self._encode_thread = threading.Thread(target=self._encode_loop, name="encode-thread", daemon=True)
+        self._capture_thread = threading.Thread(target=self._run_stage, args=(self._capture_loop,), name="capture-thread", daemon=True)
+        self._process_thread = threading.Thread(target=self._run_stage, args=(self._process_loop,), name="process-thread", daemon=True)
+        self._encode_thread = threading.Thread(target=self._run_stage, args=(self._encode_loop,), name="encode-thread", daemon=True)
 
         self._capture_thread.start()
         self._process_thread.start()
         self._encode_thread.start()
+
+    def _run_stage(self, function):
+        try:
+            function()
+        except Exception as exc:
+            self.runtime.pipeline_error = f"{threading.current_thread().name} stopped: {exc}"
+            self.runtime.recording = False
+            LOGGER.exception("Video worker stopped unexpectedly")
 
     def stop(self) -> None:
         """Stop all pipeline threads and wait briefly for shutdown."""
         self._stop_event.set()
         self._capture_event.set()
         self._encode_event.set()
+        with self._jpeg_condition:
+            self._jpeg_condition.notify_all()
 
         for thread in (self._capture_thread, self._process_thread, self._encode_thread):
             if thread is not None:
@@ -446,13 +467,18 @@ class StreamWorker:
             frame = self.runtime.camera.read()
             if frame is None:
                 frame = self._blank_frame
+                self._stop_event.wait(0.1)
+                with self.runtime.lock:
+                    self.runtime.latest_frame = None
+            else:
+                if frame.shape[:2] != (self.runtime.frame_height, self.runtime.frame_width):
+                    frame = cv2.resize(frame, (self.runtime.frame_width, self.runtime.frame_height))
+                with self.runtime.lock:
+                    self.runtime.latest_frame = frame.copy()
+                    self.runtime.last_capture_epoch = time.time()
 
             with self._raw_lock:
                 self._latest_raw_frame = frame
-
-            # Also expose on runtime so scene shot API can grab a clean frame
-            with self.runtime.lock:
-                self.runtime.latest_frame = frame
 
             self._capture_event.set()
 
@@ -462,7 +488,8 @@ class StreamWorker:
         fps_ema = 0.0
 
         while not self._stop_event.is_set():
-            self._capture_event.wait(timeout=0.5)
+            if not self._capture_event.wait(timeout=0.5) or self._stop_event.is_set():
+                continue
             self._capture_event.clear()
 
             with self._raw_lock:
@@ -485,7 +512,8 @@ class StreamWorker:
             )
 
             if should_process:
-                networks = self.runtime.scanner.get_networks()
+                scan = self.runtime.scanner.get_snapshot()
+                networks = scan["networks"]
                 combined_intensity = get_combined_intensity(networks)
                 smoothed_intensity = self.runtime.smoother.update(combined_intensity)
                 self.runtime.field_model.update(smoothed_intensity)
@@ -495,25 +523,30 @@ class StreamWorker:
                 dominant_dbm = float(dominant.get("dbm", -90.0)) if dominant else -90.0
 
                 # --- Visual Odometry: update pose from camera frame ---
-                pose = self.runtime.pose_estimator.update(frame)
-                self.runtime.update_pose(pose)
-
-                # --- RF Database: add georeferenced sample on new scan ---
-                scan_epoch = self.runtime.scanner.get_last_scan_epoch()
-                if scan_epoch > self._last_mapper_scan_epoch:
-                    self._last_mapper_scan_epoch = scan_epoch
-                    self.runtime.mapper.add_sample(combined_intensity, dominant_dbm)
-                    # Add to 3D RF database using VO world position
-                    if networks and pose.confidence > 0.1:
-                        self.runtime.rf_db.add_sample(
-                            x=pose.x, y=pose.y, z=pose.z,
-                            networks=networks,
-                        )
+                with self.runtime.acquisition_lock:
+                    pose = self.runtime.pose_estimator.update(frame)
+                    self.runtime.update_pose(pose)
+                    scan_epoch = scan["last_scan_epoch"]
+                    if scan_epoch > self._last_mapper_scan_epoch:
+                        self._last_mapper_scan_epoch = scan_epoch
+                        if self.runtime.recording and not scan["stale"]:
+                            self.runtime.mapper.add_sample(combined_intensity, dominant_dbm)
+                            if networks and time.time() - self.runtime.last_capture_epoch < 3 and pose.confidence >= config.VO_POSE_CONFIDENCE_THRESHOLD and pose.status == "TRACKING":
+                                try:
+                                    # OpenCV camera frame -> floor X/Y, height Z.
+                                    x, y, z = (pose.x, pose.y, pose.z) if self.runtime.demo else (pose.x, pose.z, -pose.y)
+                                    self.runtime.rf_db.add_sample(x, y, z, networks, timestamp=scan_epoch)
+                                    self.runtime.pipeline_error = None
+                                except (OSError, ValueError, sqlite3.Error) as exc:
+                                    self.runtime.pipeline_error = f"Sample storage failed: {exc}"
+                                    self.runtime.recording = False
+                                    LOGGER.exception("RF persistence failed; recording paused")
 
                 rendered = render(frame, rf_field, networks, mode=self.runtime.mode)
                 # Draw VO keypoints overlay when tracking
                 if pose.status == "TRACKING":
-                    kpts = self.runtime.pose_estimator.get_tracked_keypoints()
+                    with self.runtime.acquisition_lock:
+                        kpts = self.runtime.pose_estimator.get_tracked_keypoints()
                     if kpts is not None:
                         for pt in kpts[:50]:  # draw up to 50 feature points
                             cx, cy = int(pt[0]), int(pt[1])
@@ -529,8 +562,9 @@ class StreamWorker:
                 self._last_smoothed = smoothed_intensity
                 self._last_dominant_dbm = dominant_dbm
 
-            np.copyto(self._encode_buffer, self._rendered_buffer)
-            _draw_runtime_overlay(self._encode_buffer, fps=fps_ema, camera_backend=self.runtime.camera.backend_name())
+            with self._encode_buffer_lock:
+                np.copyto(self._encode_buffer, self._rendered_buffer)
+                _draw_runtime_overlay(self._encode_buffer, fps=fps_ema, camera_backend=self.runtime.camera.backend_name())
 
             self.runtime.update_metrics(
                 fps=fps_ema,
@@ -543,12 +577,15 @@ class StreamWorker:
     def _encode_loop(self) -> None:
         """JPEG-encode latest prepared frame and publish to stream clients."""
         while not self._stop_event.is_set():
-            self._encode_event.wait(timeout=0.5)
+            if not self._encode_event.wait(timeout=0.5) or self._stop_event.is_set():
+                continue
             self._encode_event.clear()
+            with self._encode_buffer_lock:
+                frame = self._encode_buffer.copy()
 
             ok, encoded = cv2.imencode(
                 ".jpg",
-                self._encode_buffer,
+                frame,
                 [int(cv2.IMWRITE_JPEG_QUALITY), int(self.runtime.jpeg_quality)],
             )
             if not ok:
@@ -607,9 +644,9 @@ def _generate_mjpeg(stream_worker: StreamWorker) -> Generator[bytes, None, None]
     """Yield multipart MJPEG frames from pre-encoded stream worker output."""
     last_sequence = -1
 
-    while True:
+    while not stream_worker._stop_event.is_set():
         sequence, payload = stream_worker.get_latest_jpeg(last_sequence, timeout=1.0)
-        if not payload:
+        if not payload or sequence <= last_sequence:
             continue
         last_sequence = sequence
 
@@ -1242,10 +1279,11 @@ def _build_dashboard_html() -> str:
                 div.innerHTML =
                     '<div class=\"net-bars\">' + signalBars(dbm) + '</div>' +
                     '<div class=\"net-info\">' +
-                      '<div class=\"net-ssid\">' + (n.ssid || '<hidden>') + '</div>' +
+                      '<div class=\"net-ssid\"></div>' +
                       '<div class=\"net-meta\">' + (n.bssid || '') + ' · ' + (n.freq || 0) + ' MHz</div>' +
                     '</div>' +
                     '<div class=\"net-dbm\" style=\"color:' + color + '\">' + dbm.toFixed(0) + ' dBm</div>';
+                div.querySelector('.net-ssid').textContent = n.ssid || '<hidden>';
                 list.appendChild(div);
             }
         } catch (_) {}
@@ -2378,8 +2416,11 @@ def _build_3dmap_html() -> str:
 def create_app(runtime: RuntimeContext, stream_worker: StreamWorker) -> Flask:
     """Create and configure Flask application with all routes."""
     app = Flask(__name__)
+    stream_slots = threading.BoundedSemaphore(4)
+    from dashboard import register_dashboard
+    register_dashboard(app, runtime, stream_worker)
 
-    @app.get("/")
+    @app.get("/legacy")
     def index() -> Response:
         """Serve dashboard UI page."""
         return Response(_build_dashboard_html(), mimetype="text/html")
@@ -2387,8 +2428,15 @@ def create_app(runtime: RuntimeContext, stream_worker: StreamWorker) -> Flask:
     @app.get("/video")
     def video_stream() -> Response:
         """Serve MJPEG live stream."""
+        if not stream_slots.acquire(blocking=False):
+            return jsonify({"ok": False, "error": "All four video viewer slots are in use"}), 503
+        def stream():
+            try:
+                yield from _generate_mjpeg(stream_worker)
+            finally:
+                stream_slots.release()
         return Response(
-            _generate_mjpeg(stream_worker),
+            stream(),
             mimetype="multipart/x-mixed-replace; boundary=frame",
         )
 
@@ -2423,7 +2471,10 @@ def create_app(runtime: RuntimeContext, stream_worker: StreamWorker) -> Flask:
     @app.post("/api/scan/now")
     def api_scan_now() -> Response:
         """Trigger an immediate WiFi scan and return diagnostics."""
-        networks = runtime.scanner.scan_once()
+        try:
+            networks = runtime.scanner.scan_once(blocking=False)
+        except RuntimeError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 409
         error = runtime.scanner.get_last_error()
         if error:
             return jsonify({"ok": False, "error": error, "network_count": len(networks)}), 500
@@ -2765,7 +2816,10 @@ def create_app(runtime: RuntimeContext, stream_worker: StreamWorker) -> Flask:
     @app.post("/api/rf/reset_pose")
     def api_rf_reset_pose() -> Response:
         """Reset Visual Odometry pose to world origin."""
-        runtime.pose_estimator.reset()
+        with runtime.acquisition_lock:
+            if runtime.rf_db.sample_count():
+                return jsonify({"ok": False, "error": "Start a new survey before resetting the coordinate origin."}), 409
+            runtime.pose_estimator.reset()
         return jsonify({"ok": True, "message": "Pose reset to origin."})
 
     @app.get("/api/rf/ssids")
@@ -2784,7 +2838,7 @@ def create_app(runtime: RuntimeContext, stream_worker: StreamWorker) -> Flask:
     def api_rf_samples() -> Response:
         """Return RF samples as JSON, optionally filtered by SSID."""
         ssid = request.args.get("ssid", None)
-        max_items = request.args.get("max", 500, type=int)
+        max_items = max(0, min(5000, request.args.get("max", 500, type=int)))
         samples = runtime.rf_db.to_dict_list(ssid=ssid, max_items=max_items)
         return jsonify({"count": len(samples), "samples": samples})
 
@@ -2851,7 +2905,7 @@ def create_app(runtime: RuntimeContext, stream_worker: StreamWorker) -> Flask:
         for s in samples:
             writer.writerow({
                 "x": f"{s.x:.4f}", "y": f"{s.y:.4f}", "z": f"{s.z:.4f}",
-                "ssid": s.ssid, "bssid": s.bssid,
+                "ssid": csv_text(s.ssid), "bssid": csv_text(s.bssid),
                 "dbm": f"{s.dbm:.2f}", "freq": s.freq,
                 "timestamp": f"{s.timestamp:.3f}",
             })
@@ -2862,7 +2916,8 @@ def create_app(runtime: RuntimeContext, stream_worker: StreamWorker) -> Flask:
     @app.post("/api/rf/clear")
     def api_rf_clear() -> Response:
         """Clear RF database samples."""
-        runtime.rf_db.clear()
+        with runtime.acquisition_lock:
+            runtime.rf_db.clear()
         return jsonify({"ok": True})
 
     @app.get("/api/rf/db_status")
@@ -2888,15 +2943,17 @@ def create_app(runtime: RuntimeContext, stream_worker: StreamWorker) -> Flask:
     @app.get("/api/rf/floorplan")
     def api_rf_floorplan_get() -> Response:
         """Return the current floor plan JSON (auto-build if needed)."""
-        global _floor_plan_cache
+        global _floor_plan_cache, _floor_plan_cache_key
         samples = runtime.rf_db.to_dict_list()
 
         with _floor_plan_lock:
-            if _floor_plan_cache is None or len(samples) < 2:
+            key = (id(runtime.rf_db), runtime.rf_db.revision)
+            if _floor_plan_cache is None or _floor_plan_cache_key != key or len(samples) < 2:
                 if len(samples) >= 2:
                     try:
                         rec = FloorPlanReconstructor()
                         _floor_plan_cache = rec.from_samples(samples)
+                        _floor_plan_cache_key = key
                     except Exception as exc:
                         LOGGER.warning("Floor plan build failed: %s", exc)
                         return jsonify({"ok": False, "error": str(exc)}), 500
@@ -2917,7 +2974,7 @@ def create_app(runtime: RuntimeContext, stream_worker: StreamWorker) -> Flask:
     @app.post("/api/rf/floorplan/rebuild")
     def api_rf_floorplan_rebuild() -> Response:
         """Force-rebuild floor plan from current RF database."""
-        global _floor_plan_cache
+        global _floor_plan_cache, _floor_plan_cache_key
         samples = runtime.rf_db.to_dict_list()
         if len(samples) < 2:
             return jsonify({"ok": False, "error": "Not enough samples"}), 400
@@ -2926,6 +2983,7 @@ def create_app(runtime: RuntimeContext, stream_worker: StreamWorker) -> Flask:
             plan = rec.from_samples(samples)
             with _floor_plan_lock:
                 _floor_plan_cache = plan
+                _floor_plan_cache_key = (id(runtime.rf_db), runtime.rf_db.revision)
             return jsonify({"ok": True, "message": "Floor plan rebuilt.",
                             "bounds": {"x_min": plan.x_min, "x_max": plan.x_max,
                                        "y_min": plan.y_min, "y_max": plan.y_max},
@@ -2937,7 +2995,7 @@ def create_app(runtime: RuntimeContext, stream_worker: StreamWorker) -> Flask:
     @app.get("/api/rf/render3d")
     def api_rf_render3d() -> Response:
         """Render Ekahau-style 3D isometric heatmap PNG on demand."""
-        global _floor_plan_cache
+        global _floor_plan_cache, _floor_plan_cache_key
         ssid = request.args.get("ssid", None)
         grid = request.args.get("grid", 50, type=int)
 
@@ -2948,10 +3006,12 @@ def create_app(runtime: RuntimeContext, stream_worker: StreamWorker) -> Flask:
 
         # Get or build floor plan
         with _floor_plan_lock:
-            if _floor_plan_cache is None:
+            key = (id(runtime.rf_db), runtime.rf_db.revision)
+            if _floor_plan_cache is None or _floor_plan_cache_key != key:
                 try:
                     rec = FloorPlanReconstructor()
                     _floor_plan_cache = rec.from_samples(runtime.rf_db.to_dict_list())
+                    _floor_plan_cache_key = key
                 except Exception as exc:
                     return jsonify({"ok": False, "error": str(exc)}), 500
             plan = _floor_plan_cache
@@ -2978,8 +3038,9 @@ def create_app(runtime: RuntimeContext, stream_worker: StreamWorker) -> Flask:
     # Persistent Room Layouts (multiple named layouts on Pi)
     # Stored in room_layouts.json: { active, layouts: { name: {rooms, nextId} } }
     # ---------------------------------------------------------------
-    _ROOM_LAYOUTS_FILE = Path(__file__).parent / "room_layouts.json"
+    _ROOM_LAYOUTS_FILE = (Path(runtime.rf_db.storage_path).parent if runtime.rf_db.storage_path else Path(__file__).parent) / "room_layouts.json"
     _OLD_LAYOUT_FILE   = Path(__file__).parent / "room_layout.json"
+    _LEGACY_LAYOUTS_FILE = Path(__file__).parent / "room_layouts.json"
     _DEFAULT_ROOMS = [
         {"id": 0, "name": "Living Room", "x": 0, "y": 0, "w": 6, "d": 5, "h": 2.6},
         {"id": 1, "name": "Bedroom",     "x": 6, "y": 0, "w": 4, "d": 5, "h": 2.6},
@@ -2993,6 +3054,13 @@ def create_app(runtime: RuntimeContext, stream_worker: StreamWorker) -> Flask:
             try:
                 return json.loads(_ROOM_LAYOUTS_FILE.read_text(encoding="utf-8"))
             except Exception:
+                pass
+        if _LEGACY_LAYOUTS_FILE != _ROOM_LAYOUTS_FILE and _LEGACY_LAYOUTS_FILE.exists():
+            try:
+                legacy = json.loads(_LEGACY_LAYOUTS_FILE.read_text(encoding="utf-8"))
+                if isinstance(legacy, dict) and isinstance(legacy.get("layouts"), dict):
+                    return legacy
+            except (OSError, ValueError):
                 pass
         # Migrate from old single-layout file
         default_layout = {"rooms": _DEFAULT_ROOMS, "nextId": 3}
@@ -3008,9 +3076,9 @@ def create_app(runtime: RuntimeContext, stream_worker: StreamWorker) -> Flask:
 
     def _save_all_layouts(data: dict):
         import json
-        _ROOM_LAYOUTS_FILE.write_text(
-            json.dumps(data, indent=2), encoding="utf-8"
-        )
+        temp = _ROOM_LAYOUTS_FILE.with_suffix(".tmp.json")
+        temp.write_text(json.dumps(data, indent=2, allow_nan=False), encoding="utf-8")
+        temp.replace(_ROOM_LAYOUTS_FILE)
 
     @app.get("/api/rooms/layouts")
     def list_room_layouts() -> Response:
@@ -3144,14 +3212,12 @@ def create_app(runtime: RuntimeContext, stream_worker: StreamWorker) -> Flask:
         with runtime.lock:
             latest = getattr(runtime, "latest_frame", None)
 
-        if latest is None or latest.size == 0:
-            # Fallback: read directly from camera
-            # CameraSource.read() returns Optional[np.ndarray] (not a tuple!)
-            latest = runtime.camera.read()
-            if latest is None:
-                return jsonify({"ok": False, "error": "No camera frame available. Is the camera streaming?"}), 503
+        if latest is None or latest.size == 0 or time.time() - runtime.last_capture_epoch > 3:
+            return jsonify({"ok": False, "error": "No camera frame available. Is the camera streaming?"}), 503
 
         status = mgr.take_shot(direction.upper(), latest)
+        if status.error:
+            return jsonify({"ok": False, "error": status.error}), 400
         return jsonify({
             "ok": True,
             "direction": direction.upper(),
@@ -3180,6 +3246,8 @@ def create_app(runtime: RuntimeContext, stream_worker: StreamWorker) -> Flask:
             walk = []
 
         status = mgr.reconstruct(walk_path=walk, rf_samples=samples_list)
+        if status.error:
+            return jsonify({"ok": False, "error": status.error}), 409
         return jsonify({
             "ok": True,
             "state": status.state,
@@ -3210,10 +3278,6 @@ def create_app(runtime: RuntimeContext, stream_worker: StreamWorker) -> Flask:
         import json as _json
         mgr = _get_scene_capture()
         geom = mgr.get_geometry_dict()
-        if geom is None:
-            # Try loading from disk
-            if mgr.load_geometry_from_disk():
-                geom = mgr.get_geometry_dict()
         if geom is None:
             return jsonify({"ok": False, "error": "No scene geometry available. Please run a capture and reconstruct first."}), 404
         # Attach latest RF samples for real-time overlay
@@ -3247,7 +3311,8 @@ def create_app(runtime: RuntimeContext, stream_worker: StreamWorker) -> Flask:
         reader = _get_imu_reader()
         ori = reader.get_orientation()
         return jsonify({
-            "ok": True,
+            "ok": ori.timestamp > 0 and time.time() - ori.timestamp < 1.0,
+            "simulated": reader.simulate,
             "yaw": ori.yaw,
             "pitch": ori.pitch,
             "roll": ori.roll,
@@ -3266,7 +3331,7 @@ def create_app(runtime: RuntimeContext, stream_worker: StreamWorker) -> Flask:
             return jsonify({
                 "ok": False,
                 "hardware_detected": reader.hardware_detected,
-                "mode": "simulation",
+                "mode": "simulation" if reader.simulate else "unavailable",
                 "orientation": {"yaw": ori.yaw, "pitch": ori.pitch, "roll": ori.roll},
                 "message": "IMU hardware not responding. Check wiring (SDA=GPIO2, SCL=GPIO3) and run: pip install smbus2",
             })
@@ -3298,13 +3363,27 @@ def run_server(
     camera_fps: int = config.CAMERA_FPS,
     jpeg_quality: int = config.JPEG_QUALITY,
     process_every_n_frames: int = config.PROCESS_EVERY_N_FRAMES,
+    demo: bool = False,
+    data_dir: str = ".data",
 ) -> None:
     """Initialize modules and run Flask server."""
+    if not 1 <= port <= 65535 or not 0.2 <= scan_interval <= 120:
+        raise ValueError("Port must be 1–65535 and scan interval 0.2–120 seconds")
+    if not all(32 <= v <= 4096 for v in (camera_width, camera_height)) or not 1 <= jpeg_quality <= 100:
+        raise ValueError("Camera dimensions must be 32–4096 and JPEG quality 1–100")
     _configure_logging()
     cv2.setNumThreads(int(config.OPENCV_NUM_THREADS))
     cv2.setUseOptimized(True)
+    global _imu_reader, _scene_capture
+    config.ALLOW_SYNTHETIC_DEPTH = demo
+    data_root = Path(data_dir).resolve()
+    data_root.mkdir(parents=True, exist_ok=True)
+    config.MAPPER_SNAPSHOT_DIR = str(data_root / "mapper_snapshots")
+    scene_prefix = "demo" if demo else "live"
+    _scene_capture = SceneCaptureManager(output_dir=str(data_root / (scene_prefix + "-shots")), geometry_dir=str(data_root / (scene_prefix + "-scenes")))
+    _scene_capture.load_geometry_from_disk()
 
-    scanner = start_scanner(interface=interface, scan_interval=scan_interval)
+    scanner = WifiScanner(interface=interface, scan_interval=scan_interval)
     camera = CameraSource(
         index=camera_index,
         width=camera_width,
@@ -3312,6 +3391,14 @@ def run_server(
         fps=camera_fps,
     )
 
+    if demo:
+        from demo import DemoCamera, DemoScanner, DemoPoseEstimator
+        config.ALLOW_SYNTHETIC_DEPTH = True
+        camera = DemoCamera(camera_width, camera_height, camera_fps)
+        scanner = DemoScanner(scan_interval=scan_interval)
+        _imu_reader = IMUReader(simulate=True)
+        _imu_reader.start()
+    scanner.start_scanner()
     if not camera.open():
         LOGGER.warning("Camera could not be opened; stream will use fallback frames.")
 
@@ -3343,6 +3430,7 @@ def run_server(
         rf_db=RFDatabase(
             max_samples=config.RF_DB_MAX_SAMPLES,
             min_displacement=config.RF_SAMPLE_MIN_DISTANCE,
+            storage_path=str(Path(data_dir) / ("demo.sqlite3" if demo else "live.sqlite3")),
         ),
         rf_interpolator=RFInterpolator(
             grid_size=config.INTERPOLATION_GRID_SIZE,
@@ -3353,25 +3441,36 @@ def run_server(
         frame_width=camera_width,
         frame_height=camera_height,
         jpeg_quality=jpeg_quality,
+        demo=demo,
     )
+    if demo:
+        runtime.pose_estimator = DemoPoseEstimator()
+    # A restarted monocular tracker has a new origin; preserve old survey data.
+    runtime.recording = runtime.rf_db.sample_count() == 0
 
     stream_worker = StreamWorker(runtime=runtime, process_every_n_frames=process_every_n_frames)
-    stream_worker.start()
-
     app = create_app(runtime, stream_worker)
+    stream_worker.start()
 
     try:
         LOGGER.info("Starting server on http://%s:%d", host, port)
-        app.run(host=host, port=port, threaded=True)
+        from waitress import serve
+        serve(app, host=host, port=port, threads=12, channel_timeout=30)
     finally:
         stream_worker.stop()
         camera.release()
         scanner.stop_scanner()
+        if _imu_reader is not None:
+            _imu_reader.stop()
+        if _scene_capture is not None:
+            _scene_capture.cancel()
 
 
 def _parse_args() -> argparse.Namespace:
     """Parse command-line options for standalone app execution."""
     parser = argparse.ArgumentParser(description="WiFi visualizer Flask MJPEG server")
+    parser.add_argument("--demo", action="store_true", help="Use clearly labeled simulated camera, RF and motion")
+    parser.add_argument("--data-dir", default=".data", help="Persistent survey directory")
     parser.add_argument("--host", default=config.SERVER_HOST, help="Bind host (default: 0.0.0.0)")
     parser.add_argument("--port", type=int, default=config.SERVER_PORT, help="Bind port (default: 5000)")
     parser.add_argument("--mode", default=config.DEFAULT_MODE, help="Visualization mode")
@@ -3396,6 +3495,8 @@ def main() -> int:
     """Entry point for running Flask app directly."""
     args = _parse_args()
     run_server(
+        demo=args.demo,
+        data_dir=args.data_dir,
         host=args.host,
         port=args.port,
         mode=args.mode,

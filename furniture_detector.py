@@ -141,9 +141,11 @@ class FurnitureDetector:
         self._use_fallback = False  # True if model unavailable
 
         model_file = Path(model_path)
+        if not model_file.is_absolute():
+            model_file = Path(__file__).resolve().parent / model_file
         if not model_file.exists():
             LOGGER.warning("YOLO model not found at %s — attempting download...", model_file)
-            ok = _download_model(model_file, _YOLO_ONNX_URL)
+            ok = config.AUTO_DOWNLOAD_MODELS and _download_model(model_file, _YOLO_ONNX_URL)
             if not ok or not model_file.exists():
                 LOGGER.warning(
                     "YOLOv8n model unavailable. Furniture detection disabled. "
@@ -191,7 +193,14 @@ class FurnitureDetector:
         blob, scale_x, scale_y, pad_x, pad_y = self._preprocess(bgr_image)
 
         t0 = time.perf_counter()
-        raw = session.run([output_name], {input_name: blob})[0]
+        try:
+            raw = session.run([output_name], {input_name: blob})[0]
+            if not np.isfinite(raw).all():
+                raise ValueError("Detector returned non-finite values")
+        except Exception as exc:
+            LOGGER.warning("Furniture inference unavailable: %s", exc)
+            self._use_fallback = True
+            return []
         elapsed = (time.perf_counter() - t0) * 1000.0
         LOGGER.debug("YOLOv8n inference: %.1f ms", elapsed)
 

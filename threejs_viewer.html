@@ -496,6 +496,7 @@
       justify-content: flex-end
     }
   </style>
+<link rel="stylesheet" href="/static/viewer.css">
 </head>
 
 <body>
@@ -744,14 +745,15 @@
   <script type="importmap">
 {
   "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
+    "three": "/static/vendor/three/build/three.module.js",
+    "three/addons/": "/static/vendor/three/examples/jsm/"
   }
 }
 </script>
 
   <script type="module">
     import * as THREE from 'three';
+import { OrientationSync, installViewerTools, disposeGroup, escapeHTML, reducedMotion } from '/static/viewer-utils.js';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
     // ─────────────────────────────────────────────────────────────
@@ -1005,13 +1007,7 @@
     // ─────────────────────────────────────────────────────────────
     function buildHeatmap(remappedSamples) {
       // Clear old heatmap meshes
-      while (heatmapGroup.children.length) {
-        const c = heatmapGroup.children[0];
-        c.geometry?.dispose();
-        if (Array.isArray(c.material)) c.material.forEach(m => m.dispose());
-        else c.material?.dispose();
-        heatmapGroup.remove(c);
-      }
+      disposeGroup(heatmapGroup);
 
       if (!remappedSamples || remappedSamples.length < 2) return;
 
@@ -1068,11 +1064,7 @@
     // ─────────────────────────────────────────────────────────────
     function buildRooms() {
       while (roomGroup.children.length) {
-        roomGroup.children[0].traverse(c => {
-          if (c.geometry) c.geometry.dispose();
-          if (c.material) c.material.dispose();
-        });
-        roomGroup.remove(roomGroup.children[0]);
+        disposeGroup(roomGroup);
       }
 
       rooms.forEach(room => {
@@ -1206,13 +1198,7 @@
     function buildRFSamples() {
       // Clear all groups
       [rfGroup, pathGroup, apGroup, heatmapGroup].forEach(g => {
-        while (g.children.length) {
-          const c = g.children[0];
-          c.geometry?.dispose();
-          if (Array.isArray(c.material)) c.material.forEach(m => m.dispose());
-          else c.material?.dispose();
-          g.remove(c);
-        }
+        disposeGroup(g);
       });
 
       let totalSamples = 0;
@@ -1262,8 +1248,8 @@
           if (hasRealZ) {
             wy = Math.min(Math.max(0.08, ((s.z - szMin) / szSpan) * rh * 0.85), rh * 0.9);
           } else {
-            const t = Math.max(0, Math.min(1, ((s.dbm ?? -90) - (-90)) / 60));
-            wy = Math.min(Math.max(0.05, 0.15 + t * rh * 0.72 + jitter(s, 0.35)), rh * 0.92);
+            // No measured vertical variation: keep samples on a reference plane.
+            wy = 0.15;
           }
           // Hard clamp to room boundaries
           return {
@@ -1366,7 +1352,7 @@
           rooms.forEach(r=>{rxMin=Math.min(rxMin,r.x);rxMax=Math.max(rxMax,r.x+r.w);ryMin=Math.min(ryMin,r.y);ryMax=Math.max(ryMax,r.y+r.d);});
           const margin=0.4,rxSpan=Math.max(rxMax-rxMin-margin*2,0.001),rySpan=Math.max(ryMax-ryMin-margin*2,0.001),maxH=rooms.length?Math.min(...rooms.map(r=>r.h)):2.6;
           function jFb(s,range){const seed=(s.bssid||s.ssid||'').split('').reduce((a,c)=>a+c.charCodeAt(0),0)+Math.round((s.x||0)*100)+Math.round((s.y||0)*100);return(((seed*1664525+1013904223)&0xffffffff)/0xffffffff-0.5)*range;}
-          function remapFb(s){const wx=rxMin+margin+((s.x-sxMin)/sxSpan)*rxSpan;const wz=ryMin+margin+((s.y-syMin)/sySpan)*rySpan;const t=Math.max(0,Math.min(1,((s.dbm??-90)-(-90))/60));const wy=hasRealZ?Math.min(Math.max(0.08,((s.z-szMin)/szSpan)*maxH*0.85),maxH*0.9):Math.min(Math.max(0.05,0.15+t*maxH*0.72+jFb(s,0.35)),maxH*0.92);return{wx,wy,wz};}
+          function remapFb(s){const wx=rxMin+margin+((s.x-sxMin)/sxSpan)*rxSpan;const wz=ryMin+margin+((s.y-syMin)/sySpan)*rySpan;const wy=hasRealZ?Math.min(Math.max(0.08,((s.z-szMin)/szSpan)*maxH*0.85),maxH*0.9):0.15;return{wx,wy,wz};}
           const sphGeo=new THREE.SphereGeometry(dotSize,10,8);
           filtered.forEach(s=>{const{wx,wy,wz}=remapFb(s);if(s.dbm>bestDBM)bestDBM=s.dbm;const col=dbmToColor(s.dbm);const mesh=new THREE.Mesh(sphGeo,new THREE.MeshStandardMaterial({color:col,roughness:0.3,metalness:0.2,emissive:col,emissiveIntensity:0.35}));mesh.position.set(wx,wy,wz);mesh.userData={dbm:s.dbm,ssid:s.ssid};rfGroup.add(mesh);});
           if(showPath&&filtered.length>=2){const pts=filtered.map(s=>{const{wx,wz}=remapFb(s);return new THREE.Vector3(wx,0.05,wz);});pathGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0x7c3aed,opacity:0.7,transparent:true})));}
@@ -1401,18 +1387,21 @@
       const span = Math.max(xMax - xMin, zMax - zMin, 6);
       controls.target.set(cx, 0, cz);
       camera.position.set(cx + span * 0.6, span * 0.9, cz + span * 0.9);
-      controls.update();
+      if (!gyroSyncEnabled) controls.update();
     }
 
     // ─────────────────────────────────────────────────────────────
     // Fetch RF data from Flask
     // ─────────────────────────────────────────────────────────────
+    let rfFetchBusy = false;
     async function fetchRFData() {
+      if (rfFetchBusy || document.hidden) return;
+      rfFetchBusy = true;
       document.getElementById('loader').classList.remove('hidden');
       document.getElementById('loader-txt').textContent = 'Loading RF samples…';
       try {
         // fetch SSIDs
-        const ssidRes = await fetch('/api/rf/ssids').then(r => r.json()).catch(() => null);
+        const ssidRes = await fetch('/api/rf/ssids', {signal: AbortSignal.timeout(5000)}).then(r => r.json());
         if (ssidRes && ssidRes.ssids) {
           const sel = document.getElementById('ssid-sel');
           const prev = sel.value;
@@ -1428,7 +1417,7 @@
         // fetch samples
         let url = `/api/rf/samples?max=3000`;
         if (activeSSID) url += `&ssid=${encodeURIComponent(activeSSID)}`;
-        const sRes = await fetch(url).then(r => r.json()).catch(() => null);
+        const sRes = await fetch(url, {signal: AbortSignal.timeout(5000)}).then(r => r.json());
         
         if (sRes && Array.isArray(sRes.samples)) {
           const allSamples = sRes.samples;
@@ -1478,7 +1467,10 @@
 
       } catch (e) {
         console.error('fetchRFData:', e);
+        document.getElementById('save-status').textContent = 'RF connection interrupted. Retrying automatically.';
+        document.getElementById('save-status').style.display = 'block';
       } finally {
+        rfFetchBusy = false;
         document.getElementById('loader').classList.add('hidden');
       }
     }
@@ -1498,7 +1490,7 @@
         if (isCollecting) el.style.outline = `1px solid #${new THREE.Color(r.color).getHexString()}88`;
         el.innerHTML = `
       <div class="room-dot" style="background:#${new THREE.Color(r.color).getHexString()}"></div>
-      <div class="room-label">${r.name}${isCollecting ? ' <span style="color:#00c2ff;font-size:10px">📡</span>' : ''}${frozenCount && !isCollecting ? ` <span style="font-size:9px;color:var(--muted)">(${frozenCount}pts)</span>` : ''}</div>
+      <div class="room-label">${escapeHTML(r.name)}${isCollecting ? ' <span style="color:#00c2ff;font-size:10px">📡</span>' : ''}${frozenCount && !isCollecting ? ` <span style="font-size:9px;color:var(--muted)">(${frozenCount}pts)</span>` : ''}</div>
       <button class="room-del" data-id="${r.id}" title="Remove">✕</button>
     `;
         el.addEventListener('click', e => {
@@ -1627,7 +1619,7 @@
     // ─────────────────────────────────────────────────────────────
     document.getElementById('btn-refresh').addEventListener('click', fetchRFData);
     document.getElementById('btn-reset-cam').addEventListener('click', () => {
-      camera.position.set(10, 14, 16); camera.lookAt(5, 0, 4); controls.update();
+      camera.position.set(10, 14, 16); camera.lookAt(5, 0, 4); if (!gyroSyncEnabled) controls.update();
     });
     document.getElementById('btn-auto-fit').addEventListener('click', autoFit);
 
@@ -1669,11 +1661,12 @@
     // IMU Gyro Sync (Head-Tracking / Handheld Rotation)
     // ─────────────────────────────────────────────────────────────
     let gyroSyncEnabled = false;
-    let targetYawRad = 0;
-    let currentYawRad = 0;
+    let imuSync = null;
 
     function toggleGyroSync() {
       gyroSyncEnabled = !gyroSyncEnabled;
+      if (!imuSync) imuSync = new OrientationSync(THREE, camera, controls);
+      imuSync.setEnabled(gyroSyncEnabled);
       const label = gyroSyncEnabled ? '🧭 Gyro Sync: ON' : '🧭 Gyro Sync: OFF';
       const hudBtn = document.getElementById('btn-hud-gyro');
       const sideBtn = document.getElementById('btn-gyro-toggle');
@@ -1691,18 +1684,7 @@
     document.getElementById('btn-gyro-toggle')?.addEventListener('click', toggleGyroSync);
     document.getElementById('btn-hud-gyro')?.addEventListener('click', toggleGyroSync);
 
-    function pollIMU() {
-      if (!gyroSyncEnabled) return;
-      fetch('/api/imu/orientation')
-        .then(r => r.json())
-        .then(data => {
-          if (data.ok) {
-            targetYawRad = data.yaw_rad;
-          }
-        })
-        .catch(() => {});
-    }
-    setInterval(pollIMU, 80);
+    installViewerTools(() => ({renderer, scene, camera}), () => imuSync);
 
     // ─────────────────────────────────────────────────────────────
     // Render loop
@@ -1710,31 +1692,17 @@
     let _frame = 0;
     function animate() {
       requestAnimationFrame(animate);
+      if (document.hidden) return;
 
-      if (gyroSyncEnabled) {
-        // Smooth lerp toward target yaw
-        let diff = targetYawRad - currentYawRad;
-        while (diff < -Math.PI) diff += Math.PI * 2;
-        while (diff > Math.PI) diff -= Math.PI * 2;
-        currentYawRad += diff * 0.12;
+      if (gyroSyncEnabled) imuSync?.update();
 
-        // Reposition camera using THREE.Spherical — the correct way
-        // to programmatically set OrbitControls azimuth angle
-        const offset = camera.position.clone().sub(controls.target);
-        const spherical = new THREE.Spherical().setFromVector3(offset);
-        spherical.theta = currentYawRad;   // azimuth (horizontal rotation)
-        offset.setFromSpherical(spherical);
-        camera.position.copy(controls.target).add(offset);
-        camera.lookAt(controls.target);
-      }
-
-      controls.update();
+      if (!gyroSyncEnabled) controls.update();
       _frame++;
       // Gentle pulsing for spheres mode
-      if ((viewMode === 'spheres' || viewMode === 'both') && _frame % 3 === 0) {
+      if (!reducedMotion.matches && (viewMode === 'spheres' || viewMode === 'both') && _frame % 3 === 0) {
         rfGroup.children.forEach((m, i) => {
           if (m.material && !m.material.vertexColors) {
-            m.material.emissiveIntensity = 0.25 + 0.15 * Math.sin(_frame * 0.04 + i * 0.5);
+            m.material.emissiveIntensity = 0.25 + 0.15 * Math.sin(performance.now() * 0.0024 + i * 0.5);
           }
         });
       }

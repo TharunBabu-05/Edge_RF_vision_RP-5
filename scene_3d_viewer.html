@@ -242,6 +242,7 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     #loading-text { font-size: 14px; color: var(--muted); }
   </style>
+<link rel="stylesheet" href="/static/viewer.css">
 </head>
 <body>
 
@@ -415,8 +416,8 @@
 <script type="importmap">
 {
   "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
+    "three": "/static/vendor/three/build/three.module.js",
+    "three/addons/": "/static/vendor/three/examples/jsm/"
   }
 }
 </script>
@@ -424,6 +425,7 @@
 <script type="module">
 // ── Three.js imports ────────────────────────────────────────────────
 import * as THREE from 'three';
+import { OrientationSync, installViewerTools, disposeGroup, escapeHTML, saveViewerPNG } from '/static/viewer-utils.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // ── Globals ────────────────────────────────────────────────────────
@@ -433,9 +435,20 @@ let layers = { walls: new THREE.Group(), furniture: new THREE.Group(),
                cameras: new THREE.Group(), grid: new THREE.Group() };
 let currentGeom = null;
 let ssidFilter = '';
+let viewMode = 'both', sphereSize = 0.18, heatmapRes = 38;
 let frameCount = 0, lastFPSTime = performance.now(), fps = 0;
 
 const DBM_MIN = -90, DBM_MAX = -30;
+
+window.updateDisplayOptions = function() {
+  ssidFilter = document.getElementById('ssid-filter').value;
+  viewMode = document.getElementById('sel-view-mode').value;
+  sphereSize = Number(document.getElementById('sl-sphere-size').value);
+  heatmapRes = Number(document.getElementById('sl-res').value);
+  document.getElementById('val-sphere-size').textContent = sphereSize.toFixed(2);
+  document.getElementById('val-res').textContent = String(heatmapRes);
+  if (currentGeom) { disposeGroup(layers.rf); buildRFSamples(currentGeom); }
+};
 
 // ── Signal → colour (matches Ekahau convention) ────────────────────
 function signalColor(dbm) {
@@ -514,11 +527,12 @@ function onResize() {
 }
 
 let gyroSyncEnabled = false;
-let targetYawRad = 0;
-let currentYawRad = 0;
+let imuSync = null;
 
 window.toggleGyroSync = function() {
   gyroSyncEnabled = !gyroSyncEnabled;
+      if (!imuSync) imuSync = new OrientationSync(THREE, camera, controls);
+      imuSync.setEnabled(gyroSyncEnabled);
   const label = gyroSyncEnabled ? '🧭 Gyro Sync: ON' : '🧭 Gyro Sync: OFF';
   const btn = document.getElementById('btn-scene-gyro');
   const hudVal = document.getElementById('hud-gyro-val');
@@ -529,40 +543,15 @@ window.toggleGyroSync = function() {
   }
 };
 
-function pollIMU() {
-  if (!gyroSyncEnabled) return;
-  fetch('/api/imu/orientation')
-    .then(r => r.json())
-    .then(data => {
-      if (data.ok) {
-        targetYawRad = data.yaw_rad;
-      }
-    })
-    .catch(() => {});
-}
-setInterval(pollIMU, 80);
+installViewerTools(() => ({renderer, scene, camera}), () => imuSync);
 
 function animate() {
   requestAnimationFrame(animate);
+      if (document.hidden) return;
 
-  if (gyroSyncEnabled) {
-    // Smooth lerp toward target yaw
-    let diff = targetYawRad - currentYawRad;
-    while (diff < -Math.PI) diff += Math.PI * 2;
-    while (diff > Math.PI)  diff -= Math.PI * 2;
-    currentYawRad += diff * 0.12;
+  if (gyroSyncEnabled) imuSync?.update();
 
-    // Reposition camera using THREE.Spherical — the correct way
-    // to programmatically set OrbitControls azimuth angle
-    const offset = camera.position.clone().sub(controls.target);
-    const spherical = new THREE.Spherical().setFromVector3(offset);
-    spherical.theta = currentYawRad;
-    offset.setFromSpherical(spherical);
-    camera.position.copy(controls.target).add(offset);
-    camera.lookAt(controls.target);
-  }
-
-  controls.update();
+  if (!gyroSyncEnabled) controls.update();
   renderer.render(scene, camera);
 
   frameCount++;
@@ -578,7 +567,7 @@ function animate() {
 function buildScene(geom) {
   currentGeom = geom;
   // Clear all layers
-  for (const g of Object.values(layers)) { while (g.children.length) g.remove(g.children[0]); }
+  for (const g of Object.values(layers)) { disposeGroup(g); }
 
   buildGrid(geom);
   buildWalls(geom);
@@ -597,7 +586,7 @@ function buildScene(geom) {
   const dist = Math.max(rw, rd) * 1.3;
   camera.position.set(centre.x + dist * 0.7, centre.y + dist * 0.8, centre.z + dist * 1.1);
   camera.lookAt(centre);
-  controls.update();
+  if (!gyroSyncEnabled) controls.update();
 }
 
 // ── Grid floor ─────────────────────────────────────────────────────
@@ -733,7 +722,7 @@ function buildFurniture(geom) {
     const geo = new THREE.BoxGeometry(bw, bh, bd);
     const mat = new THREE.MeshPhongMaterial({ color, transparent: true, opacity: 0.7, shininess: 40 });
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(f.cx || 0, (f.cz || 0) + bh / 2, f.cy || 0);
+    mesh.position.set(f.cx || 0, Math.max(bh / 2, f.cz || 0), f.cy || 0);
     mesh.castShadow = true;
     layers.furniture.add(mesh);
 
@@ -747,7 +736,7 @@ function buildFurniture(geom) {
 
     // Label
     const label = makeTextSprite(`${f.label}\n${Math.round((f.confidence || 0) * 100)}%`);
-    label.position.set(f.cx || 0, (f.cz || 0) + bh + 0.25, f.cy || 0);
+    label.position.set(f.cx || 0, Math.max(bh / 2, f.cz || 0) + bh / 2 + 0.25, f.cy || 0);
     layers.furniture.add(label);
   });
 }
@@ -790,9 +779,9 @@ function buildRFSamples(geom) {
     let pz = (maxZ > minZ) ? (0.4 + ((rz - minZ) / spanZ) * (rd - 0.8)) : (rd / 2);
     pz = Math.max(0.3, Math.min(rd - 0.3, pz));
 
-    // Map Y (Height) strictly INSIDE ceiling height [0.2 .. rh - 0.25]
-    let py = 0.2 + t * (rh - 0.45);
-    py = Math.max(0.15, Math.min(rh - 0.25, py));
+    // RF and reconstructed room frames are not calibrated/registered.
+    // Show a reference plane instead of inventing height from RSSI.
+    const py = 0.15;
 
     return { ...s, dbm, t, px, py, pz };
   });
@@ -952,17 +941,20 @@ function buildCameraMarkers(geom) {
 
 // ── Text sprite helper ─────────────────────────────────────────────
 function makeTextSprite(text, size = 12, color = '#ffffff') {
+  if (typeof size === 'object') { color = size.color || color; size = size.fontSize || 32; }
+  size = Math.max(28, Number(size));
   const canvas = document.createElement('canvas');
   canvas.width = 256; canvas.height = 128;
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillStyle = 'rgba(7,18,28,0.72)';
   ctx.roundRect(4, 4, canvas.width - 8, canvas.height - 8, 8);
   ctx.fill();
   ctx.fillStyle = color;
-  ctx.font = `bold ${size}px Inter, sans-serif`;
+  ctx.font = `600 ${size}px "Segoe UI", sans-serif`;
   ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
   const lines = text.split('\n');
-  lines.forEach((line, i) => ctx.fillText(line, canvas.width / 2, 44 + i * 28));
+  lines.forEach((line, i) => ctx.fillText(line, canvas.width / 2, canvas.height / 2 + (i - (lines.length - 1) / 2) * 34, canvas.width - 20));
   const tex = new THREE.CanvasTexture(canvas);
   const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
   const sprite = new THREE.Sprite(mat);
@@ -985,17 +977,21 @@ function updateSSIDFilter(geom) {
   const sel = document.getElementById('ssid-filter');
   const prev = sel.value;
   sel.innerHTML = '<option value="">All Networks</option>' +
-    ssids.map(s => `<option value="${s}"${s === prev ? ' selected' : ''}>${s}</option>`).join('');
+    ssids.map(s => `<option value="${escapeHTML(s).replaceAll('"', '&quot;')}"${s === prev ? ' selected' : ''}>${escapeHTML(s)}</option>`).join('');
 }
 
 function updateFurnitureLegend(geom) {
   const items = geom.furniture || [];
-  const byLabel = {};
+  const byLabel = Object.create(null);
   items.forEach(f => { byLabel[f.label] = f.color; });
   const legend = document.getElementById('furniture-legend');
-  legend.innerHTML = Object.entries(byLabel).map(([label, color]) =>
-    `<div class="legend-item"><div class="legend-dot" style="background:${color}"></div>${label}</div>`
-  ).join('') || '<p style="font-size:11px;color:var(--muted)">No furniture detected</p>';
+  legend.replaceChildren();
+  for (const [label, color] of Object.entries(byLabel)) {
+    const row=document.createElement('div');row.className='legend-item';
+    const dot=document.createElement('div');dot.className='legend-dot';dot.style.background=color;
+    row.append(dot,document.createTextNode(label));legend.append(row);
+  }
+  if (!items.length) legend.textContent='No furniture detections';
 }
 
 // ── Layer toggle ───────────────────────────────────────────────────
@@ -1007,7 +1003,7 @@ window.toggleLayer = function(name) {
 window.applySSIDFilter = function() {
   ssidFilter = document.getElementById('ssid-filter').value;
   if (currentGeom) {
-    while (layers.rf.children.length) layers.rf.remove(layers.rf.children[0]);
+    disposeGroup(layers.rf);
     buildRFSamples(currentGeom);
   }
 };
@@ -1020,8 +1016,12 @@ window.resetCamera = function() {
   controls.target.copy(centre);
   const dist = Math.max(rw, rd) * 1.3;
   camera.position.set(centre.x + dist * 0.7, centre.y + dist * 0.8, centre.z + dist * 1.1);
-  controls.update();
+  if (!gyroSyncEnabled) controls.update();
+  else imuSync?.recenter();
 };
+
+window.autoFitView = function() { window.resetCamera(); };
+window.exportSnapshot = function() { saveViewerPNG(renderer, scene, camera); };
 
 // ── Status banner ──────────────────────────────────────────────────
 function showBanner(msg, type = 'info', duration = 0) {
@@ -1046,7 +1046,7 @@ window.loadScene = async function() {
     }
     const geom = await res.json();
     buildScene(geom);
-    showBanner(`Scene loaded — ${(geom.furniture||[]).length} furniture items`, 'success', 4000);
+    showBanner(`${geom.quality?.depth === 'synthetic_demo' ? 'DEMO · synthetic depth. ' : ''}Experimental geometry · ${geom.quality?.furniture === 'unavailable' ? 'furniture model unavailable' : (geom.furniture||[]).length + ' furniture items'} · dimensions uncalibrated`, 'info', 0);
   } catch (e) {
     showBanner('Failed to load scene: ' + e.message, 'error', 5000);
   } finally {
@@ -1097,6 +1097,7 @@ window.triggerReconstruct = async function() {
   try {
     const res = await fetch('/api/scene/reconstruct', { method: 'POST' });
     const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Reconstruction could not start');
     pollReconstructStatus();
   } catch (e) {
     showBanner('Reconstruction request failed: ' + e.message, 'error', 5000);
@@ -1104,10 +1105,15 @@ window.triggerReconstruct = async function() {
   }
 };
 
+let reconstructionPoll = null;
 function pollReconstructStatus() {
+  clearInterval(reconstructionPoll);
+  let busy = false;
   const poll = setInterval(async () => {
+    if (busy || document.hidden) return;
+    busy = true;
     try {
-      const res = await fetch('/api/scene/status');
+      const res = await fetch('/api/scene/status', {signal: AbortSignal.timeout(5000)});
       const s = await res.json();
       updateProgress({ shots_taken: s.shots_taken, shots_remaining: s.shots_remaining, progress_pct: s.progress_pct });
       document.getElementById('loading-text').textContent =
@@ -1122,13 +1128,20 @@ function pollReconstructStatus() {
         clearInterval(poll);
         document.getElementById('loading-overlay').classList.add('hidden');
         showBanner(`Reconstruction failed: ${s.error}`, 'error', 8000);
+      } else if (s.state === 'idle' || s.state === 'capturing') {
+        clearInterval(poll);
+        document.getElementById('loading-overlay').classList.add('hidden');
       }
-    } catch (e) { /* network glitch, keep polling */ }
+    } catch (e) { showBanner('Waiting for server connection…', 'info'); }
+    finally { busy = false; }
   }, 2000);
+  reconstructionPoll = poll;
 }
 
 // ── Reset capture ──────────────────────────────────────────────────
 window.resetCapture = async function() {
+  clearInterval(reconstructionPoll);
+  document.getElementById('loading-overlay').classList.add('hidden');
   await fetch('/api/scene/reset', { method: 'POST' });
   ['N','E','S','W'].forEach(d => {
     const btn = document.getElementById(`shot-${d}`);
@@ -1142,7 +1155,7 @@ window.resetCapture = async function() {
 
   // Clear 3D canvas layers so screen returns to blank
   currentGeom = null;
-  for (const g of Object.values(layers)) { while (g.children.length) g.remove(g.children[0]); }
+  for (const g of Object.values(layers)) { disposeGroup(g); }
 
   showBanner('Session reset', 'info', 2000);
 };
@@ -1159,16 +1172,19 @@ function updateProgress(data) {
 
 // ── Auto-refresh RF samples ────────────────────────────────────────
 async function refreshRFSamples() {
-  if (!currentGeom) return;
+  if (!currentGeom || document.hidden || rfRefreshBusy) return;
+  rfRefreshBusy = true;
   try {
-    const res = await fetch('/api/scene/geometry');
+    const res = await fetch('/api/scene/geometry', {signal: AbortSignal.timeout(5000)});
     if (!res.ok) return;
     const geom = await res.json();
     currentGeom.rf_samples = geom.rf_samples || [];
-    while (layers.rf.children.length) layers.rf.remove(layers.rf.children[0]);
+    disposeGroup(layers.rf);
     buildRFSamples(currentGeom);
   } catch {}
+  finally { rfRefreshBusy = false; }
 }
+let rfRefreshBusy = false;
 setInterval(refreshRFSamples, 3000);
 
 // ── Init ───────────────────────────────────────────────────────────
@@ -1189,6 +1205,14 @@ try {
     const res = await fetch('/api/scene/status');
     if (res.ok) {
       const s = await res.json();
+      if (s.state === 'ready' && s.has_geometry) {
+        await window.loadScene();
+        return;
+      }
+      if (s.state === 'reconstructing') {
+        document.getElementById('loading-overlay').classList.remove('hidden');
+        pollReconstructStatus();
+      }
       (s.shots_taken || []).forEach(d => {
         document.getElementById(`shot-${d}`)?.classList.add('captured');
         const st = document.getElementById(`status-${d}`);

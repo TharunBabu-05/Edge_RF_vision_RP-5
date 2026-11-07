@@ -1,13 +1,13 @@
 """MPU-9250 / MPU-6500 IMU Sensor Reader & Complementary Orientation Filter.
 
-Reads 6-DOF / 9-DOF raw motion data (Accelerometer, Gyroscope, Magnetometer)
+Reads accelerometer and gyroscope motion data (6-DOF)
 over I2C on Raspberry Pi 5 (default bus 1, address 0x68 or 0x69).
 Computes stable Euler orientation angles (Yaw, Pitch, Roll) using a fast
-Complementary / Mahony filter.
+complementary filter. Heading uses gyro integration and will drift.
 
 Features:
   - Auto hardware detection: checks if smbus2 and I2C address 0x68/0x69 are available.
-  - Safe fallback: if sensor is not yet plugged in, runs in simulation mode so system never crashes.
+  - Missing hardware is unavailable; simulation requires an explicit flag.
   - Threaded background reading loop (~60 Hz).
   - Clean Thread-safe API for fetching orientation snapshot: {yaw, pitch, roll, hardware_detected}.
 
@@ -57,7 +57,10 @@ class IMUOrientation:
 class IMUReader:
     """Thread-safe MPU-9250 / MPU-6500 IMU Sensor Reader."""
 
-    def __init__(self, bus_num: int = 1, sample_rate_hz: float = 60.0, alpha: float = 0.96) -> None:
+    def __init__(self, bus_num: int = 1, sample_rate_hz: float = 60.0, alpha: float = 0.96, simulate: bool = False) -> None:
+        self.simulate = simulate
+        self._last_measurement = 0.0
+        self._io_lock = threading.Lock()
         self.bus_num = bus_num
         self.sample_rate_hz = sample_rate_hz
         self.dt = 1.0 / sample_rate_hz
@@ -82,7 +85,8 @@ class IMUReader:
         self._thread: Optional[threading.Thread] = None
 
         # Attempt to initialize hardware
-        self._init_hardware()
+        if not simulate:
+            self._init_hardware()
 
     def _init_hardware(self) -> bool:
         """Attempt to open SMBus and initialize MPU-9250/6500 hardware."""
@@ -90,11 +94,12 @@ class IMUReader:
             import smbus2
             self._bus = smbus2.SMBus(self.bus_num)
 
-            # Check WHO_AM_I register — accept ANY value as long as device responds
-            # (many cheap MPU-9250/6500/6050 clones return different WHO_AM_I)
+            # Only initialize supported MPU-family chip IDs.
             for addr in (_MPU6500_DEFAULT_ADDR, _MPU6500_ALT_ADDR):
                 try:
                     who = self._bus.read_byte_data(addr, _REG_WHO_AM_I)
+                    if who not in (0x68, 0x70, 0x71, 0x73):
+                        continue
                     # Device is present if it responded — log chip ID for info
                     LOGGER.info("IMU device found at I2C addr 0x%02X, WHO_AM_I=0x%02X", addr, who)
                     self._addr = addr
@@ -104,7 +109,9 @@ class IMUReader:
                     continue
 
             if not self.hardware_detected:
-                LOGGER.warning("MPU-9250/6500 not detected on I2C bus %d (addrs 0x68/0x69). Operating in Simulation mode.", self.bus_num)
+                LOGGER.warning("MPU sensor not detected on I2C bus %d; orientation unavailable.", self.bus_num)
+                self._bus.close()
+                self._bus = None
                 return False
 
             # Reset & Wake Up MPU
@@ -124,7 +131,7 @@ class IMUReader:
             return True
 
         except Exception as exc:
-            LOGGER.info("I2C smbus2 unavailable or error: %s. Operating in IMU Simulation mode.", exc)
+            LOGGER.info("IMU unavailable: %s", exc)
             self.hardware_detected = False
             return False
 
@@ -155,7 +162,8 @@ class IMUReader:
             return None
         try:
             # Read 14 bytes: Accel (6), Temp (2), Gyro (6)
-            data = self._bus.read_i2c_block_data(self._addr, _REG_ACCEL_XOUT_H, 14)
+            with self._io_lock:
+                data = self._bus.read_i2c_block_data(self._addr, _REG_ACCEL_XOUT_H, 14)
 
             def _to_int16(h, l):
                 val = (h << 8) | l
@@ -212,6 +220,7 @@ class IMUReader:
             p = float(self._pitch)
             r = float(self._roll)
             hw = self.hardware_detected
+            timestamp = self._last_measurement
 
         # Wrap yaw to [-180, 180]
         y_wrapped = (y + 180.0) % 360.0 - 180.0
@@ -223,15 +232,18 @@ class IMUReader:
             roll=round(r, 2),
             yaw_rad=round(y_rad, 4),
             hardware_detected=hw,
-            timestamp=time.time(),
+            timestamp=timestamp,
         )
 
 
 def _loop_worker(imu: IMUReader) -> None:
     """Worker loop for complementary filtering."""
     sim_t = 0.0
+    previous = time.perf_counter() - imu.dt
     while imu._running:
         t0 = time.perf_counter()
+        dt = min(0.1, max(0.0001, t0 - previous))
+        previous = t0
 
         raw = imu._read_raw_data()
         with imu._lock:
@@ -243,16 +255,19 @@ def _loop_worker(imu: IMUReader) -> None:
                 roll_acc  = math.degrees(math.atan2(ay, az))
 
                 # Integrate gyroscope rates
-                imu._pitch = imu.alpha * (imu._pitch + gy * imu.dt) + (1.0 - imu.alpha) * pitch_acc
-                imu._roll  = imu.alpha * (imu._roll + gx * imu.dt) + (1.0 - imu.alpha) * roll_acc
-                imu._yaw  += gz * imu.dt
-            else:
+                alpha = imu.alpha ** (dt / imu.dt)
+                imu._pitch = alpha * (imu._pitch + gy * dt) + (1.0 - alpha) * pitch_acc
+                imu._roll  = alpha * (imu._roll + gx * dt) + (1.0 - alpha) * roll_acc
+                imu._yaw  += gz * dt
+                imu._last_measurement = time.time()
+            elif imu.simulate:
                 # Simulation mode if hardware isn't attached
-                sim_t += imu.dt
+                sim_t += dt
                 # Subtle simulated slow rotation for demonstration when offline
                 imu._yaw = (sim_t * 8.0) % 360.0
                 imu._pitch = math.sin(sim_t * 0.5) * 2.0
                 imu._roll  = math.cos(sim_t * 0.5) * 1.5
+                imu._last_measurement = time.time()
 
         # Sleep to maintain sampling frequency (~60 Hz)
         elapsed = time.perf_counter() - t0

@@ -95,11 +95,13 @@ class DepthEstimator:
         self._use_fallback = False  # True if model unavailable
 
         model_file = Path(model_path)
+        if not model_file.is_absolute():
+            model_file = Path(__file__).resolve().parent / model_file
         if not model_file.exists():
             LOGGER.warning("Depth model not found at %s — trying to download...", model_file)
             # Try primary URL then fallback
-            ok = _download_model(model_file, _MIDAS_ONNX_URL)
-            if not ok:
+            ok = config.AUTO_DOWNLOAD_MODELS and _download_model(model_file, _MIDAS_ONNX_URL)
+            if not ok and config.AUTO_DOWNLOAD_MODELS:
                 LOGGER.warning("Primary URL failed, trying fallback URL...")
                 ok = _download_model(model_file, _MIDAS_ONNX_URL_FALLBACK)
             if not ok or not model_file.exists():
@@ -129,12 +131,16 @@ class DepthEstimator:
             Falls back to synthetic gradient depth if model is unavailable.
         """
         if self._use_fallback:
+            if not config.ALLOW_SYNTHETIC_DEPTH:
+                raise RuntimeError("Depth model unavailable. Install onnxruntime and a compatible MiDaS ONNX model at " + self._model_path + ". Synthetic reconstruction is available only in --demo mode.")
             return self._synthetic_depth(bgr_image)
         try:
             session = self._get_session()
         except Exception as exc:
             LOGGER.warning("ONNX session failed (%s) — using synthetic depth", exc)
             self._use_fallback = True
+            if not config.ALLOW_SYNTHETIC_DEPTH:
+                raise RuntimeError("Cannot load depth model; check ONNX Runtime and model compatibility") from exc
             return self._synthetic_depth(bgr_image)
 
         input_name = session.get_inputs()[0].name
@@ -144,7 +150,12 @@ class DepthEstimator:
         preprocessed = self._preprocess(bgr_image)
 
         t0 = time.perf_counter()
-        raw = session.run([output_name], {input_name: preprocessed})[0]
+        try:
+            raw = session.run([output_name], {input_name: preprocessed})[0]
+            if not np.isfinite(raw).all():
+                raise ValueError("Depth model returned non-finite values")
+        except Exception as exc:
+            raise RuntimeError("Depth inference failed; verify the ONNX model input and output shapes") from exc
         elapsed = (time.perf_counter() - t0) * 1000.0
         LOGGER.debug("MiDaS inference: %.1f ms", elapsed)
 

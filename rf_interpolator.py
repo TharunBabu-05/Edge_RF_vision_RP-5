@@ -94,6 +94,11 @@ def idw_interpolate(
     if len(points) == 0:
         return np.zeros(len(query), dtype=np.float64)
 
+    # Bound temporary arrays even for a full 5,000-sample survey.
+    batch = max(1, 250000 // len(points))
+    if len(query) > batch:
+        return np.concatenate([idw_interpolate(points, values, query[i:i + batch], power, epsilon)
+                               for i in range(0, len(query), batch)])
     dists = _pairwise_distances(query, points)  # (M, N)
     dists = np.maximum(dists, epsilon)
     weights = 1.0 / (dists ** float(power))    # (M, N)
@@ -136,6 +141,7 @@ def gaussian_rbf_interpolate(
             kernel="gaussian",
             smoothing=smoothing,
             epsilon=1.0,
+            neighbors=min(64, len(points)),
         )
         result = rbf(query).astype(np.float64)
         v_min = float(values.min())
@@ -166,6 +172,10 @@ def kriging_interpolate(
     Returns:
         (M,) kriged estimates.
     """
+    # Global ordinary kriging is cubic in sample count; cap its support set.
+    if len(points) > 256:
+        selection = np.linspace(0, len(points) - 1, 256, dtype=int)
+        points, values = points[selection], values[selection]
     n = len(points)
     if n == 0:
         return np.zeros(len(query), dtype=np.float64)
@@ -181,21 +191,21 @@ def kriging_interpolate(
     # Add nugget for numerical stability
     C += np.eye(n) * 1e-4
 
+    system = np.ones((n + 1, n + 1))
+    system[:n, :n] = C
+    system[n, n] = 0
     try:
-        C_inv = np.linalg.inv(C)
+        # Dual solve enforces sum(weights)=1 without forming an inverse.
+        coefficients = np.linalg.solve(system, np.r_[values, 0.0])
     except np.linalg.LinAlgError:
         LOGGER.warning("Kriging: covariance matrix is singular, falling back to IDW.")
         return idw_interpolate(points, values, query)
 
     # Covariance between known points and query points (M×N)
-    dist_qp = _pairwise_distances(query, points)
-    c0 = _gaussian_cov(dist_qp, length_scale)  # (M, N)
-
-    # Kriging weights: w = C_inv @ c0^T → (N, M)
-    weights = C_inv @ c0.T  # (N, M)
-
-    # Kriged estimate: values^T @ weights → (M,)
-    result = (values @ weights).astype(np.float64)
+    result = np.empty(len(query))
+    for start in range(0, len(query), 512):
+        c0 = _gaussian_cov(_pairwise_distances(query[start:start + 512], points), length_scale)
+        result[start:start + 512] = c0 @ coefficients[:n] + coefficients[n]
     return result
 
 
@@ -369,26 +379,27 @@ class RFInterpolator:
         if z1 - z0 < res:
             z0 -= res; z1 += res
 
-        W = max(2, int(round((x1 - x0) / res)) + 1)
-        H = max(2, int(round((y1 - y0) / res)) + 1)
-        D = max(2, int(round((z1 - z0) / res)) + 1)
+        W = max(2, int(np.ceil((x1 - x0) / res)) + 1)
+        H = max(2, int(np.ceil((y1 - y0) / res)) + 1)
+        D = max(2, int(np.ceil((z1 - z0) / res)) + 1)
 
         # Cap voxel grid to avoid OOM on Pi Zero 2W
         MAX_VOXELS = 50 * 50 * 10
         while W * H * D > MAX_VOXELS:
-            W = max(2, W // 2)
-            H = max(2, H // 2)
-            D = max(2, D // 2)
+            res *= 1.25
+            W = max(2, int(np.ceil((x1 - x0) / res)) + 1)
+            H = max(2, int(np.ceil((y1 - y0) / res)) + 1)
+            D = max(2, int(np.ceil((z1 - z0) / res)) + 1)
 
-        gx = np.linspace(x0, x1, W)
-        gy = np.linspace(y0, y1, H)
-        gz = np.linspace(z0, z1, D)
-        vgx, vgy, vgz = np.meshgrid(gx, gy, gz, indexing="ij")  # (W, H, D)
+        gx = x0 + np.arange(W) * res
+        gy = y0 + np.arange(H) * res
+        gz = z0 + np.arange(D) * res
+        vgz, vgy, vgx = np.meshgrid(gz, gy, gx, indexing="ij")  # (D, H, W)
         query = np.column_stack([vgx.ravel(), vgy.ravel(), vgz.ravel()])
 
         points = np.column_stack([xs, ys, zs])
         result_flat = self._dispatch(chosen_method, points, values, query)
-        grid = result_flat.reshape(W, H, D)
+        grid = result_flat.reshape(D, H, W)
         if not use_dbm:
             grid = np.clip(grid, 0.0, 1.0)
 

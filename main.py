@@ -146,6 +146,9 @@ def _test_wifi_scan(interface: str, scan_interval: float) -> None:
 def _parse_args() -> argparse.Namespace:
     """Parse Stage 6 command-line arguments."""
     parser = argparse.ArgumentParser(description="WiFi signal visualizer main entry point")
+    parser.add_argument("--demo", action="store_true", help="Run with simulated camera, WiFi and motion")
+    parser.add_argument("--host", default=config.SERVER_HOST)
+    parser.add_argument("--data-dir", default=".data")
     parser.add_argument("--port", type=int, default=config.SERVER_PORT, help="Server port (default: 5000)")
     parser.add_argument(
         "--resolution",
@@ -185,18 +188,16 @@ def main() -> int:
     LOGGER.info("=== WiFi Visualizer Startup ===")
     _log_system_info()
 
-    if not _test_camera(config.CAMERA_INDEX, width, height, config.CAMERA_FPS):
-        LOGGER.error("Startup aborted: camera readiness test failed.")
-        return 1
-
-    _test_wifi_scan(args.interface, args.scan_interval)
+    # Sources are opened once by the server. Missing hardware is reported in the UI.
 
     local_ip = _get_local_ip()
     LOGGER.info("System ready. Open http://%s:%d in your browser", local_ip, args.port)
 
     try:
         web_app.run_server(
-            host=config.SERVER_HOST,
+            host=args.host,
+            demo=args.demo,
+            data_dir=args.data_dir,
             port=args.port,
             mode=args.mode,
             interface=args.interface,

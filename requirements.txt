@@ -1,0 +1,8 @@
+# Runtime versions verified on Python 3.12 / Windows x64.
+# Raspberry Pi deployment: 64-bit Raspberry Pi OS and Python 3.12+.
+Flask==3.1.3
+numpy==2.5.4
+opencv-python-headless==5.0.0.93
+scipy==1.18.1
+matplotlib==3.11.2
+waitress==3.0.2

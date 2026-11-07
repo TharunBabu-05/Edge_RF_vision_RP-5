@@ -50,6 +50,7 @@ class WifiScanner:
         self.command_timeout = command_timeout
 
         self._lock = threading.Lock()
+        self._scan_lock = threading.Lock()
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
 
@@ -58,6 +59,7 @@ class WifiScanner:
             "last_scan_epoch": 0.0,
             "last_scan_duration_ms": 0.0,
             "last_error": None,
+            "generation": 0,
         }
 
     def start_scanner(self) -> None:
@@ -103,7 +105,26 @@ class WifiScanner:
         with self._lock:
             return float(self._state["last_scan_duration_ms"])
 
-    def scan_once(self) -> List[Dict[str, Any]]:
+    def scan_once(self, blocking: bool = True) -> List[Dict[str, Any]]:
+        """Serialize manual and scheduled scans on the same radio."""
+        if not self._scan_lock.acquire(blocking=blocking):
+            raise RuntimeError("A WiFi scan is already running")
+        try:
+            return self._scan_once_locked()
+        finally:
+            self._scan_lock.release()
+
+    def get_snapshot(self) -> Dict[str, Any]:
+        """Return networks and freshness from the same successful scan."""
+        with self._lock:
+            snapshot = dict(self._state)
+            snapshot["networks"] = [dict(n) for n in self._state["networks"]]
+        epoch = snapshot["last_scan_epoch"]
+        snapshot["age_seconds"] = max(0.0, time.time() - epoch) if epoch else None
+        snapshot["stale"] = bool(snapshot["last_error"]) or not epoch or snapshot["age_seconds"] > max(10, self.scan_interval * 3)
+        return snapshot
+
+    def _scan_once_locked(self) -> List[Dict[str, Any]]:
         """Perform one WiFi scan and update internal state.
 
         Returns:
@@ -119,7 +140,6 @@ class WifiScanner:
             with self._lock:
                 # Keep last successful networks visible on transient scan failures.
                 self._state["last_error"] = error_message
-                self._state["last_scan_epoch"] = now_epoch
                 self._state["last_scan_duration_ms"] = duration_ms
             LOGGER.warning("WiFi scan failed: %s", error_message)
             with self._lock:
@@ -131,6 +151,7 @@ class WifiScanner:
 
         with self._lock:
             self._state["networks"] = networks
+            self._state["generation"] += 1
             self._state["last_error"] = None
             self._state["last_scan_epoch"] = now_epoch
             self._state["last_scan_duration_ms"] = duration_ms
@@ -167,14 +188,20 @@ class WifiScanner:
         )
 
         last_error = "Unknown scan failure"
+        deadline = time.monotonic() + self.command_timeout
 
         for command in commands:
+            if self._stop_event.is_set():
+                return False, "", "Scanner stopped"
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
             try:
                 result = subprocess.run(
                     command,
                     capture_output=True,
                     text=True,
-                    timeout=self.command_timeout,
+                    timeout=remaining,
                     check=False,
                 )
             except FileNotFoundError as exc:
@@ -189,7 +216,7 @@ class WifiScanner:
             stdout = (result.stdout or "").strip()
             stderr = (result.stderr or "").strip()
 
-            if result.returncode == 0 and stdout:
+            if result.returncode == 0:
                 return True, stdout, ""
 
             if result.returncode == 0 and not stdout:

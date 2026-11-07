@@ -1,0 +1,29 @@
+[Unit]
+Description=EdgeRF local survey server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=edgerf
+Group=edgerf
+SupplementaryGroups=video i2c
+WorkingDirectory=/opt/edgerf
+ExecStart=/opt/edgerf/.venv/bin/python main.py --host 127.0.0.1 --port 5000 --data-dir /var/lib/edgerf
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGINT
+Environment=PYTHONUNBUFFERED=1
+Environment=MPLCONFIGDIR=/var/lib/edgerf/matplotlib
+StateDirectory=edgerf
+AmbientCapabilities=CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_NET_ADMIN
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/edgerf
+
+[Install]
+WantedBy=multi-user.target

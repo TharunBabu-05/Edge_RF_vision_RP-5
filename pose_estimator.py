@@ -305,6 +305,9 @@ class PoseEstimator:
         Returns:
             True if pose was updated successfully.
         """
+        displacement = np.linalg.norm(curr_pts.reshape(-1, 2) - prev_pts.reshape(-1, 2), axis=1)
+        if not len(displacement) or not np.isfinite(displacement).all() or np.median(displacement) < 0.5:
+            return False
         try:
             E, mask = cv2.findEssentialMat(
                 curr_pts,
@@ -326,7 +329,7 @@ class PoseEstimator:
             return False
 
         try:
-            _, R_delta, t_delta, recover_mask = cv2.recoverPose(
+            recovered, R_delta, t_delta, recover_mask = cv2.recoverPose(
                 E,
                 curr_pts,
                 prev_pts,
@@ -336,7 +339,7 @@ class PoseEstimator:
         except cv2.error:
             return False
 
-        if R_delta is None or t_delta is None:
+        if R_delta is None or t_delta is None or recovered < self.min_match_count:
             return False
 
         # Integrate incremental translation into world frame
@@ -345,10 +348,11 @@ class PoseEstimator:
         self._t_world = self._t_world + t_world_delta
 
         # Integrate rotation
-        self._R_world = R_delta @ self._R_world
+        # recoverPose(curr, prev) maps current camera coordinates into previous.
+        self._R_world = self._R_world @ R_delta
 
         # Extract yaw from rotation matrix
-        self._yaw = float(np.arctan2(self._R_world[1, 0], self._R_world[0, 0]))
+        self._yaw = float(np.arctan2(self._R_world[0, 2], self._R_world[2, 2]))
 
         return True
 

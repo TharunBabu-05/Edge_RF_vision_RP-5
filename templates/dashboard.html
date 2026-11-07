@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark"><title>EdgeRF · Survey workspace</title>
+  <link rel="stylesheet" href="/static/dashboard.css"><script src="/static/dashboard.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#workspace">Skip to workspace</a>
+  <header class="topbar"><a class="brand" href="/" aria-label="EdgeRF home"><span class="brand-icon">◈</span> EdgeRF<span class="brand-suffix">/ spatial intelligence</span></a>
+    <nav aria-label="Main navigation"><a class="active" href="/">Overview</a><a href="/3dmap">3D explorer ↗</a><a href="/scene">Room capture ↗</a><a href="/legacy">Survey tools</a></nav>
+    <span class="badge" id="connection">Connecting</span>
+  </header>
+  <main id="workspace">
+    <div class="intro"><div><div class="eyebrow">EDGE COMPUTING / RF OBSERVABILITY</div><h1>Make the invisible visible<span>.</span></h1><p>Capture signal. Understand coverage. Explore your space.</p></div>
+      <div class="actions"><button id="new-survey" class="secondary">＋ New survey</button><button id="record" disabled>Pause recording</button></div>
+    </div>
+    <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+    <div class="metrics">
+      <article class="metric"><span>Strongest signal</span><strong id="signal">—</strong><small id="strongest">Waiting for a successful scan</small><svg id="trend" viewBox="0 0 180 35" aria-label="Recent strongest signal trend"><path/></svg></article>
+      <article class="metric"><span>Visible networks</span><strong id="net-count">—</strong><small>Latest successful scan</small></article>
+      <article class="metric"><span>Spatial measurements</span><strong id="samples">0</strong><small id="storage">Checking storage…</small></article>
+      <article class="metric"><span>Camera throughput</span><strong id="fps">—</strong><small id="pose-status">Tracking initializing</small></article>
+    </div>
+    <div class="visuals">
+      <section class="panel spatial"><div class="panel-heading"><div><span class="eyebrow">SPATIAL VIEW</span><h2>Your signal, in context</h2></div><div class="inline"><select id="ssid" aria-label="Filter spatial view by network"><option value="">All networks</option></select><button id="rotate" class="icon-btn" aria-label="Toggle automatic map rotation" aria-pressed="false">↻</button></div></div>
+        <div class="map-wrap"><canvas id="map" aria-label="Isometric view of measured RF sample positions"></canvas><div id="empty-map" class="empty"><span>◇</span><h3>Your survey begins here</h3><p>Move the camera while scanning to collect spatial samples.<br>Use New survey to start with a fresh coordinate origin.</p></div><span class="map-tag" id="units">Uncalibrated VO units</span><a class="map-link" href="/3dmap">Open 3D explorer ↗</a></div>
+        <div class="legend"><span><i class="good"></i> ≥ −60 dBm</span><span><i class="fair"></i> −75 to −60</span><span><i class="weak"></i> &lt; −75</span><span class="muted">Strongest per position · relative height</span></div>
+      </section>
+      <section class="panel camera"><div class="panel-heading"><div><span class="eyebrow">EDGE DEVICE</span><h2>Live perspective</h2></div><span id="mode" class="badge">Hardware</span></div>
+        <div class="camera-wrap"><img id="video" src="/video" alt="Live camera with RF overlay"><span id="camera-state">Connecting to camera</span></div>
+        <div class="health-grid"><div><span>Camera</span><strong id="camera-health">—</strong></div><div><span>WiFi scanner</span><strong id="scan-health">—</strong></div><div><span>Last scan</span><strong id="scan-age">—</strong></div><div><span>Recording</span><strong id="record-state">—</strong></div></div>
+      </section>
+    </div>
+    <section class="panel networks"><div class="panel-heading"><div><span class="eyebrow">RADIO ENVIRONMENT</span><h2>Nearby networks <span id="network-label"></span></h2></div><div class="inline"><input id="search" type="search" aria-label="Search networks" placeholder="Search SSID or BSSID"><select id="band" aria-label="Filter frequency band"><option value="">All bands</option><option value="2.4">2.4 GHz</option><option value="5">5 GHz</option><option value="6">6 GHz</option></select><button id="scan" class="secondary">↻ Scan now</button></div></div>
+      <div class="table-wrap"><table><thead><tr><th scope="col">Network / SSID</th><th scope="col">BSSID</th><th scope="col">Band</th><th scope="col">Signal strength</th><th scope="col">Quality</th></tr></thead><tbody id="networks"><tr><td colspan="5" class="no-results">Waiting for scan data…</td></tr></tbody></table></div>
+    </section>
+    <footer><span><i class="status-dot"></i> <span id="footer-status">Checking pipeline</span></span><div><button id="archives">Past surveys</button><a href="/api/rf/export/csv" download>Export CSV ↓</a><a href="/api/rf/export/json" download>Export JSON ↓</a><a href="/healthz" target="_blank" rel="noopener">Diagnostics ↗</a></div></footer>
+  </main>
+  <dialog id="new-dialog"><form method="dialog"><span class="eyebrow">NEW SURVEY</span><h2>Start with a fresh origin?</h2><p>The current RF samples will be archived on this device. The camera tracker and map will reset, then recording will begin.</p><div class="actions"><button value="cancel" class="secondary">Keep current survey</button><button value="confirm">Archive & start</button></div></form></dialog>
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+  <dialog id="archives-dialog"><form method="dialog"><span class="eyebrow">SURVEY HISTORY</span><h2>Archived surveys</h2><p>Download previous surveys from this device.</p><div id="archive-list"></div><button>Close</button></form></dialog>
+</body></html>

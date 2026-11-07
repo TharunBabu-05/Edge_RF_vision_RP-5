@@ -1,0 +1,4 @@
+-r requirements.txt
+# Optional sensor and inference providers; validate wheel support on your Pi OS.
+smbus2>=0.4.3,<1
+onnxruntime>=1.18,<2

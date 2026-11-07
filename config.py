@@ -133,6 +133,11 @@ SCENE_WALL_MIN_INLIERS = 150            # Min points to accept a plane as a wall
 SCENE_ROOM_HEIGHT_ESTIMATE = 2.5        # Fallback ceiling height (m)
 SCENE_RECONSTRUCTION_TIMEOUT = 120      # Max seconds for full pipeline
 
+# Model downloads are an explicit provisioning step, never a surprise in a capture.
+AUTO_DOWNLOAD_MODELS = False
+ALLOW_SYNTHETIC_DEPTH = False          # Enabled only by --demo
+ALLOW_HEURISTIC_FURNITURE = False      # Contours cannot reliably identify furniture
+
 # ── Furniture 3D box colors in the viewer (label → hex) ─────────────────────
 FURNITURE_COLORS = {
     "chair":        "#4A90D9",

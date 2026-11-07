@@ -1,3 +1,33 @@
+# EdgeRF — current runtime
+
+EdgeRF collects WiFi RSSI at the device's location and associates measurements with camera-based motion estimates. It includes a responsive survey dashboard, interactive room viewers and an experimental four-image reconstruction pipeline.
+
+**Engineering update · November 2026:** persistent SQLite surveys, scan freshness checks, camera-worker synchronization, bounded interpolation, reconstruction cancellation/timeouts, explicit model availability, full yaw/pitch/roll viewer sync, local Three.js assets, survey archives and automated regression tests are now implemented.
+
+Start the hardware-free demo in this Windows workspace:
+
+```powershell
+.\.venv\Scripts\python.exe main.py --demo --host 127.0.0.1
+```
+
+Open **http://127.0.0.1:5000**. For a fresh installation, create a Python 3.12 virtual environment and install `requirements.txt`. Install `requirements-dev.txt` for tests, or `requirements-hardware.txt` for optional I2C and ONNX providers.
+
+| Page | Purpose |
+| --- | --- |
+| `/` | Live dashboard, search/filter networks, pause/resume, new survey, archive downloads |
+| `/3dmap` | Editable room layout, RF display, orientation sync and PNG capture |
+| `/scene` | Four-shot experimental room reconstruction |
+| `/legacy` | Existing manual mapper and guided-survey controls |
+| `/healthz` | Camera/scanner/pipeline readiness, HTTP 200 or 503 |
+
+Read **[Operations and setup](docs/OPERATIONS.md)** and **[Engineering changes and validation](docs/ENGINEERING_UPDATE.md)** for the authoritative current behavior.
+
+**Measurement status:** this is a research prototype with improved software reliability, not a certified or metrically calibrated survey system. Monocular VO has unknown scale; the IMU controls view orientation and is not fused into position estimation. Four-view depth reconstruction is experimental, and RF-to-room registration is uncalibrated. Real Raspberry Pi throughput, sensor accuracy and long-running reliability still require hardware acceptance testing.
+
+The original project narrative is retained below for historical context. Claims there about SLAM, metric accuracy, complete reconstruction or measured performance should be read against the limitations and current implementation above.
+
+---
+
 <div align="center">
   <img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&height=220&section=header&text=EdgeRF%203D&fontSize=50&fontColor=ffffff&animation=fadeIn" alt="EdgeRF 3D banner" />
 

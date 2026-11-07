@@ -101,6 +101,7 @@ class SceneCaptureManager:
         self._geometry: Optional[SceneGeometry] = None
         self._recon_thread: Optional[threading.Thread] = None
         self._recon_start: float = 0.0
+        self._generation = 0
 
         self._reconstructor = reconstructor  # lazy init in background thread
 
@@ -117,6 +118,7 @@ class SceneCaptureManager:
             if self._state == CaptureState.RECONSTRUCTING:
                 return self._status_locked()
             self._shots.clear()
+            self._generation += 1
             self._error = None
             self._geometry = None
             self._state = CaptureState.CAPTURING
@@ -141,18 +143,19 @@ class SceneCaptureManager:
 
         with self._lock:
             if self._state not in (CaptureState.CAPTURING,):
+                self._error = "Start a capture session before taking shots"
                 return self._status_locked()
-
-            self._shots[direction] = frame.copy()
-            LOGGER.info("Shot taken: %s  (total: %d / %d)",
-                        direction, len(self._shots), len(self.REQUIRED_SHOTS))
 
             # Persist to disk
             img_path = self._output_dir / f"shot_{direction}.jpg"
-            cv2.imwrite(
+            if not cv2.imwrite(
                 str(img_path), frame,
                 [cv2.IMWRITE_JPEG_QUALITY, config.JPEG_QUALITY],
-            )
+            ):
+                self._error = "Could not save camera shot; check disk space and permissions"
+                return self._status_locked()
+            self._shots[direction] = frame.copy()
+            self._error = None
 
         return self.get_status()
 
@@ -172,7 +175,8 @@ class SceneCaptureManager:
             rf_samples: RF samples to embed.
         """
         with self._lock:
-            if self._state == CaptureState.RECONSTRUCTING:
+            if self._state == CaptureState.RECONSTRUCTING or (self._recon_thread and self._recon_thread.is_alive()):
+                self._error = "Previous reconstruction is still finishing. Try again shortly."
                 return self._status_locked()
             missing = [d for d in self.REQUIRED_SHOTS if d not in self._shots]
             if len(missing) == len(self.REQUIRED_SHOTS):
@@ -182,8 +186,22 @@ class SceneCaptureManager:
                 LOGGER.warning("Reconstructing with partial shots — missing: %s", missing)
 
             self._state = CaptureState.RECONSTRUCTING
+            self._error = None
+            self._geometry = None
+            self._generation += 1
+            generation = self._generation
             self._recon_start = time.time()
             shots_copy = {k: v.copy() for k, v in self._shots.items()}
+
+        def _expire():
+            with self._lock:
+                if generation == self._generation and self._state == CaptureState.RECONSTRUCTING:
+                    self._generation += 1
+                    self._state = CaptureState.FAILED
+                    self._error = "Reconstruction timed out; its result will be discarded."
+
+        timer = threading.Timer(config.SCENE_RECONSTRUCTION_TIMEOUT, _expire)
+        timer.daemon = True
 
         def _worker():
             try:
@@ -195,26 +213,39 @@ class SceneCaptureManager:
                     rf_samples=rf_samples or [],
                 )
                 out_path = self._geometry_dir / config.SCENE_GEOMETRY_FILE
-                self._reconstructor.save(geom, str(out_path))
                 with self._lock:
+                    if generation != self._generation:
+                        return
+                    temp_path = out_path.with_suffix(".tmp.json")
+                    self._reconstructor.save(geom, str(temp_path))
+                    temp_path.replace(out_path)
                     self._geometry = geom
                     self._state = CaptureState.READY
+                    self._error = None
                     LOGGER.info("Reconstruction complete. Room %.1f×%.1f×%.1f m | %d furniture items.",
                                 geom.room_width, geom.room_depth, geom.room_height,
                                 len(geom.furniture))
             except Exception as exc:
                 LOGGER.exception("Reconstruction failed: %s", exc)
                 with self._lock:
-                    self._error = str(exc)
-                    self._state = CaptureState.FAILED
+                    if generation == self._generation:
+                        self._error = str(exc)
+                        self._state = CaptureState.FAILED
+            finally:
+                timer.cancel()
 
-        self._recon_thread = threading.Thread(target=_worker, daemon=True, name="ReconWorker")
-        self._recon_thread.start()
+        with self._lock:
+            if generation == self._generation:
+                self._recon_thread = threading.Thread(target=_worker, daemon=True, name="ReconWorker")
+                timer.start()
+                self._recon_thread.start()
         return self.get_status()
 
     def cancel(self) -> CaptureStatus:
         """Cancel the current session and return to IDLE."""
         with self._lock:
+            self._generation += 1
+            self._geometry = None
             self._shots.clear()
             self._error = None
             self._state = CaptureState.IDLE
@@ -258,6 +289,7 @@ class SceneCaptureManager:
                 capture_directions=data.get("capture_directions", []),
                 timestamp=float(data.get("timestamp", 0.0)),
                 point_cloud_size=int(data.get("point_cloud_size", 0)),
+                quality=data.get("quality", {"metric_calibrated": False, "note": "Legacy reconstruction; calibration unknown."}),
             )
             with self._lock:
                 self._geometry = geom

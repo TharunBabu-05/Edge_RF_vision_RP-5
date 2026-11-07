@@ -22,6 +22,8 @@ import csv
 import json
 import logging
 import math
+import os
+import sqlite3
 import threading
 import time
 from dataclasses import asdict, dataclass
@@ -33,7 +35,13 @@ import config
 LOGGER = logging.getLogger("rf_database")
 
 
-@dataclass
+def csv_text(value: str) -> str:
+    """Keep network names as text when opened in spreadsheet applications."""
+    text = str(value)
+    return "'" + text if text.lstrip().startswith(("=", "+", "-", "@")) or text.startswith(("\t", "\r", "\n")) else text
+
+
+@dataclass(frozen=True)
 class RFSample:
     """One georeferenced WiFi measurement."""
 
@@ -45,6 +53,12 @@ class RFSample:
     dbm: float        # Signal strength in dBm
     freq: int         # Channel frequency in MHz
     timestamp: float  # Unix timestamp of measurement
+
+    def __post_init__(self):
+        if not all(math.isfinite(v) for v in (self.x, self.y, self.z, self.dbm, self.timestamp)):
+            raise ValueError("Sample coordinates, signal and timestamp must be finite")
+        if not -150 <= self.dbm <= 0 or not 0 <= self.freq <= 100000 or self.timestamp < 0:
+            raise ValueError("Sample signal, frequency or timestamp outside supported range")
 
 
 @dataclass(frozen=True)
@@ -81,6 +95,7 @@ class RFDatabase:
         self,
         max_samples: int = config.RF_DB_MAX_SAMPLES,
         min_displacement: float = config.RF_SAMPLE_MIN_DISTANCE,
+        storage_path: Optional[str] = None,
     ) -> None:
         """Initialize empty RF database.
 
@@ -98,6 +113,28 @@ class RFDatabase:
         self._last_sample_y: float = float("nan")
         self._last_sample_z: float = float("nan")
         self._last_sample_epoch: float = 0.0
+        self.revision = 0
+        self.storage_path = storage_path
+        if storage_path:
+            Path(storage_path).parent.mkdir(parents=True, exist_ok=True)
+            with sqlite3.connect(storage_path) as connection:
+                connection.execute("CREATE TABLE IF NOT EXISTS samples (id INTEGER PRIMARY KEY, payload TEXT NOT NULL)")
+                rows = connection.execute("SELECT payload FROM samples ORDER BY id DESC LIMIT ?", (self.max_samples,)).fetchall()
+            self._samples = [RFSample(**json.loads(row[0])) for row in reversed(rows)]
+            if self._samples:
+                last = self._samples[-1]
+                self._last_sample_x, self._last_sample_y, self._last_sample_z = last.x, last.y, last.z
+                self._last_sample_epoch = last.timestamp
+
+    def _persist_locked(self, new_samples=(), replace=False):
+        """Commit before publishing memory changes; SQLite rolls back failed writes."""
+        if not self.storage_path:
+            return
+        with sqlite3.connect(self.storage_path, timeout=10) as connection:
+            if replace:
+                connection.execute("DELETE FROM samples")
+            connection.executemany("INSERT INTO samples(payload) VALUES (?)", [(json.dumps(asdict(s), allow_nan=False),) for s in new_samples])
+            connection.execute("DELETE FROM samples WHERE id NOT IN (SELECT id FROM samples ORDER BY id DESC LIMIT ?)", (self.max_samples,))
 
     # ------------------------------------------------------------------
     # Write API
@@ -128,6 +165,17 @@ class RFDatabase:
             Number of new RFSample records added (0 if filtered out).
         """
         now = float(timestamp) if timestamp is not None else time.time()
+        x, y, z = float(x), float(y), float(z)
+        if not all(math.isfinite(v) for v in (x, y, z, now)):
+            raise ValueError("Coordinates and timestamp must be finite")
+        pending = []
+        for net in networks:
+            try:
+                pending.append(RFSample(x, y, z, str(net.get("ssid", "<hidden>")), str(net.get("bssid", "")), float(net["dbm"]), int(net.get("freq", 0)), now))
+            except (KeyError, ValueError, TypeError, OverflowError):
+                continue
+        if not pending:
+            return 0
 
         with self._lock:
             # Displacement filter
@@ -141,31 +189,10 @@ class RFDatabase:
                 if dist < self.min_displacement:
                     return 0
 
-            added = 0
-            for net in networks:
-                ssid = str(net.get("ssid", "<hidden>"))
-                bssid = str(net.get("bssid", ""))
-                try:
-                    dbm = float(net.get("dbm", -100.0))
-                except (TypeError, ValueError):
-                    dbm = -100.0
-                try:
-                    freq = int(net.get("freq", 0))
-                except (TypeError, ValueError):
-                    freq = 0
-
-                sample = RFSample(
-                    x=float(x),
-                    y=float(y),
-                    z=float(z),
-                    ssid=ssid,
-                    bssid=bssid,
-                    dbm=dbm,
-                    freq=freq,
-                    timestamp=now,
-                )
-                self._samples.append(sample)
-                added += 1
+            self._persist_locked(pending)
+            self._samples.extend(pending)
+            added = len(pending)
+            self.revision += 1
 
             # Rolling window: trim oldest samples if over capacity
             if len(self._samples) > self.max_samples:
@@ -183,6 +210,8 @@ class RFDatabase:
     def clear(self) -> None:
         """Remove all samples and reset position tracking."""
         with self._lock:
+            self._persist_locked(replace=True)
+            self.revision += 1
             self._samples.clear()
             self._last_sample_x = float("nan")
             self._last_sample_y = float("nan")
@@ -280,8 +309,8 @@ class RFDatabase:
                     "x": f"{s.x:.4f}",
                     "y": f"{s.y:.4f}",
                     "z": f"{s.z:.4f}",
-                    "ssid": s.ssid,
-                    "bssid": s.bssid,
+                    "ssid": csv_text(s.ssid),
+                    "bssid": csv_text(s.bssid),
                     "dbm": f"{s.dbm:.2f}",
                     "freq": s.freq,
                     "timestamp": f"{s.timestamp:.3f}",
@@ -312,8 +341,12 @@ class RFDatabase:
             "samples": [asdict(s) for s in samples],
         }
 
-        with target.open("w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2)
+        temp = target.with_suffix(target.suffix + ".tmp")
+        with temp.open("w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, allow_nan=False)
+            f.flush()
+            os.fsync(f.fileno())
+        temp.replace(target)
 
         LOGGER.info("Exported %d samples to JSON: %s", len(samples), target)
         return str(target.resolve())
@@ -336,7 +369,9 @@ class RFDatabase:
         with source.open("r", encoding="utf-8") as f:
             payload = json.load(f)
 
-        raw_samples = payload.get("samples", [])
+        if not isinstance(payload, dict) or not isinstance(payload.get("samples"), list):
+            raise ValueError("Snapshot must contain a samples array")
+        raw_samples = payload["samples"]
         loaded: List[RFSample] = []
 
         for item in raw_samples:
@@ -351,10 +386,12 @@ class RFDatabase:
                     freq=int(item.get("freq", 0)),
                     timestamp=float(item.get("timestamp", 0.0)),
                 ))
-            except (KeyError, TypeError, ValueError) as exc:
+            except (KeyError, TypeError, ValueError, OverflowError) as exc:
                 LOGGER.warning("Skipped malformed sample record: %s", exc)
 
         with self._lock:
+            self._persist_locked(loaded[-self.max_samples:], replace=True)
+            self.revision += 1
             self._samples = loaded[-self.max_samples:]
             if loaded:
                 last = loaded[-1]
@@ -369,7 +406,7 @@ class RFDatabase:
                 self._last_sample_epoch = 0.0
 
         LOGGER.info("Loaded %d samples from JSON: %s", len(loaded), source)
-        return len(loaded)
+        return min(len(loaded), self.max_samples)
 
     def to_dict_list(
         self,
@@ -387,7 +424,7 @@ class RFDatabase:
         """
         samples = self.get_samples(ssid=ssid)
         if max_items is not None:
-            samples = samples[-max_items:]
+            samples = samples[-max_items:] if max_items > 0 else []
         return [asdict(s) for s in samples]
 
 

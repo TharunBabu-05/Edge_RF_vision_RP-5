@@ -46,6 +46,19 @@ from furniture_detector import FurnitureDetector, Detection
 
 LOGGER = logging.getLogger("scene_reconstructor")
 
+
+def _native(value):
+    """Convert NumPy scalars/arrays in geometry to strict JSON-compatible values."""
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, dict):
+        return {key: _native(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_native(item) for item in value]
+    return value
+
 # ---------------------------------------------------------------------------
 # Data structures
 # ---------------------------------------------------------------------------
@@ -92,9 +105,10 @@ class SceneGeometry:
     capture_directions: List[str] = field(default_factory=list)
     timestamp: float = 0.0
     point_cloud_size: int = 0
+    quality: Dict = field(default_factory=dict)
 
     def to_dict(self) -> Dict:
-        return {
+        return _native({
             "room_width":   self.room_width,
             "room_depth":   self.room_depth,
             "room_height":  self.room_height,
@@ -105,7 +119,8 @@ class SceneGeometry:
             "capture_directions": self.capture_directions,
             "timestamp":    self.timestamp,
             "point_cloud_size": self.point_cloud_size,
-        }
+            "quality": self.quality,
+        })
 
 
 # ---------------------------------------------------------------------------
@@ -218,7 +233,7 @@ def _ransac_plane(
     # Refine normal with all inliers via SVD
     inlier_pts = points[best_mask]
     centroid = inlier_pts.mean(axis=0)
-    _, _, Vt = np.linalg.svd(inlier_pts - centroid)
+    _, _, Vt = np.linalg.svd(inlier_pts - centroid, full_matrices=False)
     refined_normal = Vt[-1]
     if refined_normal[1] < 0:
         refined_normal = -refined_normal
@@ -236,15 +251,16 @@ def _plane_corners(
     """Compute 4 bounding-box corners of a plane from its inlier points."""
     if len(points) == 0:
         return []
-    mn = points.min(axis=0)
-    mx = points.max(axis=0)
-    # Return 4 corners cycling min→max
-    return [
-        [float(mn[0]), float(mn[1]), float(mn[2])],
-        [float(mx[0]), float(mn[1]), float(mn[2])],
-        [float(mx[0]), float(mx[1]), float(mx[2])],
-        [float(mn[0]), float(mx[1]), float(mx[2])],
-    ]
+    centre = points.mean(axis=0)
+    normal = normal / np.linalg.norm(normal)
+    axis = np.eye(3)[np.argmin(np.abs(normal))]
+    u = np.cross(normal, axis)
+    u /= np.linalg.norm(u)
+    v = np.cross(normal, u)
+    projected = (points - centre) @ np.column_stack((u, v))
+    lo, hi = projected.min(axis=0), projected.max(axis=0)
+    return [(centre + a*u + b*v).tolist() for a,b in
+            ((lo[0],lo[1]), (hi[0],lo[1]), (hi[0],hi[1]), (lo[0],hi[1]))]
 
 
 # ---------------------------------------------------------------------------
@@ -415,6 +431,12 @@ class SceneReconstructor:
             return self._empty_geometry()
 
         merged = np.vstack(all_clouds)
+        if not len(merged):
+            raise ValueError("Depth model produced no valid points")
+        # A single room frame: X right, Y up, Z forward, origin at its bounds.
+        merged[:, 1] *= -1
+        room_origin = merged.min(axis=0)
+        merged -= room_origin
         LOGGER.info("Merged cloud: %d points total", len(merged))
 
         # Voxel downsample for speed
@@ -435,12 +457,16 @@ class SceneReconstructor:
                     det, depth_maps[direction], K, R_world, label
                 )
                 if box is not None:
+                    centre = np.array([box.cx, -box.cy, box.cz]) - room_origin
+                    box.cx, box.cy, box.cz = float(centre[0]), float(centre[2]), float(centre[1])
+                    dimensions = np.abs(R_world) @ np.array([box.width, box.height, box.depth_size])
+                    box.width, box.height, box.depth_size = map(float, dimensions)
                     box.source_direction = direction
                     furniture_boxes.append(box)
 
         # ── Stage 6b: OpenCV fallback furniture detection ─────────────
         # If YOLO found nothing (model unavailable), use pure CV detection
-        if not furniture_boxes:
+        if not furniture_boxes and self._furniture._use_fallback and config.ALLOW_HEURISTIC_FURNITURE:
             LOGGER.info("YOLO found no furniture — running OpenCV-based detection as fallback")
             for direction in directions:
                 img = images[direction]
@@ -469,6 +495,13 @@ class SceneReconstructor:
             capture_directions=directions,
             timestamp=time.time(),
             point_cloud_size=len(merged),
+            quality={
+                "metric_calibrated": False,
+                "depth": "synthetic_demo" if self._depth_est._use_fallback else "relative_monocular",
+                "furniture": "unavailable" if self._furniture._use_fallback else "model",
+                "registration": "fixed_direction_angles",
+                "note": "Experimental reconstruction; dimensions are estimates. RF positions are not registered to the reconstructed room.",
+            },
         )
 
     def save(self, geometry: SceneGeometry, path: str) -> str:
@@ -608,17 +641,8 @@ class SceneReconstructor:
         """
         planes: List[WallPlane] = []
         remaining = cloud.copy()
-
-        plane_roles = [
-            ("floor",    "#D4C5A9", (0, 1, 0)),   # expected normal ~+Y
-            ("ceiling",  "#F0EFEB", (0, -1, 0)),
-            ("wall_N",   "#E8E8E4", (0, 0, 1)),
-            ("wall_S",   "#E8E8E4", (0, 0, -1)),
-            ("wall_E",   "#DCDCD8", (-1, 0, 0)),
-            ("wall_W",   "#DCDCD8", (1, 0, 0)),
-        ]
-
-        for role, color, expected_normal in plane_roles:
+        mid = (cloud.min(axis=0) + cloud.max(axis=0)) / 2 if len(cloud) else np.zeros(3)
+        for _ in range(6):
             if len(remaining) < self.wall_min:
                 break
             normal, mask = _ransac_plane(
@@ -627,18 +651,17 @@ class SceneReconstructor:
                 min_inliers=self.wall_min,
             )
             if normal is None:
-                LOGGER.debug("No plane found for role '%s'.", role)
-                continue
-
-            # Check alignment with expected normal (dot product)
-            exp = np.array(expected_normal, dtype=np.float32)
-            alignment = abs(float(np.dot(normal, exp)))
-            if alignment < 0.5:
-                LOGGER.debug("Plane for '%s' has low alignment (%.2f) — skipping.", role, alignment)
-                remaining = remaining[~mask]
-                continue
-
+                break
             inliers = remaining[mask]
+            remaining = remaining[~mask]
+            axis = int(np.argmax(np.abs(normal)))
+            if abs(normal[axis]) < 0.7:
+                continue
+            upper = inliers.mean(axis=0)[axis] > mid[axis]
+            role = (("wall_W", "wall_E"), ("floor", "ceiling"), ("wall_N", "wall_S"))[axis][int(upper)]
+            if any(p.role == role for p in planes):
+                continue
+            color = "#D4C5A9" if role == "floor" else "#E8E8E4"
             d_val = float(np.dot(normal, inliers.mean(axis=0)))
             corners = _plane_corners(inliers, normal, 0, 0, 0)
 
@@ -649,7 +672,6 @@ class SceneReconstructor:
                 corners=corners,
                 color=color,
             ))
-            remaining = remaining[~mask]
             LOGGER.info("Extracted plane '%s' with %d inliers.", role, mask.sum())
 
         # Compute room dimensions from cloud bounding box
