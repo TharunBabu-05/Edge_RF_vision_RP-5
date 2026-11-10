@@ -55,7 +55,7 @@ Use `--host 0.0.0.0` only when deliberately making the device accessible on your
 
 ## Models and measurement limits
 
-Live reconstruction no longer silently invents a depth map when MiDaS is missing. It reports an actionable failure. Provision a compatible `models/midas_v21_small_256.onnx` and optionally `models/yolov8n.onnx`; automatic downloads are disabled by default. A missing detector is reported as unavailable, not proof the room has no furniture. Synthetic depth is permitted only in explicit demo mode.
+Live reconstruction no longer silently invents a depth map when MiDaS is missing. It reports an actionable failure. Both compatible ONNX binaries are now included in `models/`, with sources, checksums and licenses in `models/manifest.json` and `models/README.md`. Run `python tools/validate_models.py` to check the installation or `python tools/fetch_model_assets.py` to restore missing files. Automatic downloads during server startup remain disabled. A missing detector is reported as unavailable, not proof the room has no furniture. Synthetic depth is permitted only in explicit demo mode.
 
 Monocular VO has unknown metric scale and drift. MiDaS estimates relative depth; fixed N/E/S/W rotations are approximate alignment, not multi-view registration. The dashboard uses raw measured sample coordinates, labeled as uncalibrated. The legacy room viewers rescale points into a layout and now label this explicitly. They no longer invent sample height from RSSI. In the reconstructed scene, RF points are displayed on a reference plane because RF-to-room registration is uncalibrated. Peaks in RSSI are not measured access-point coordinates. Do not use these outputs as a certified RF propagation or building survey.
 

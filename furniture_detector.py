@@ -35,9 +35,11 @@ import config
 
 LOGGER = logging.getLogger("furniture_detector")
 
-# YOLOv8-nano ONNX (~6 MB) — official Ultralytics release
+# FP32 dynamic ONNX export of Ultralytics YOLOv8n, published by
+# Universidad de Leon robotics; its raw output matches this decoder.
 _YOLO_ONNX_URL = (
-    "https://github.com/ultralytics/assets/releases/download/v8.2.0/yolov8n.onnx"
+    "https://huggingface.co/unileon-robotics/YOLO8-ONNX/resolve/"
+    "66e5888954d3454da709847e77b36df31f756aa9/dynamic/yolov8n.onnx"
 )
 
 # Full COCO class list (80 classes, 0-indexed)

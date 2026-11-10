@@ -29,15 +29,15 @@ import config
 LOGGER = logging.getLogger("depth_estimator")
 
 # ---------------------------------------------------------------------------
-# MiDaS-Small ONNX: ~25 MB, runs in ~150-200 ms on Raspberry Pi 5 CPU
+# Official MiDaS v2.1 model-small.onnx (about 64 MiB, FP32).
 # ---------------------------------------------------------------------------
 _MIDAS_ONNX_URL = (
-    "https://huggingface.co/Intel/midas/resolve/main/midas_v21_small_256.onnx"
+    "https://github.com/isl-org/MiDaS/releases/download/v2_1/model-small.onnx"
 )
 # Fallback if Hugging Face is also unreachable
 _MIDAS_ONNX_URL_FALLBACK = (
     "https://github.com/isl-org/MiDaS/releases/download/v2_1/"
-    "midas_v21_small_256.onnx"
+    "model-small.onnx"
 )
 
 
@@ -98,7 +98,7 @@ class DepthEstimator:
         if not model_file.is_absolute():
             model_file = Path(__file__).resolve().parent / model_file
         if not model_file.exists():
-            LOGGER.warning("Depth model not found at %s — trying to download...", model_file)
+            LOGGER.warning("Depth model not found at %s (auto-download=%s)", model_file, config.AUTO_DOWNLOAD_MODELS)
             # Try primary URL then fallback
             ok = config.AUTO_DOWNLOAD_MODELS and _download_model(model_file, _MIDAS_ONNX_URL)
             if not ok and config.AUTO_DOWNLOAD_MODELS:
@@ -106,8 +106,7 @@ class DepthEstimator:
                 ok = _download_model(model_file, _MIDAS_ONNX_URL_FALLBACK)
             if not ok or not model_file.exists():
                 LOGGER.warning(
-                    "MiDaS model download failed. Reconstruction will use synthetic depth. "
-                    "For best results, manually download midas_v21_small_256.onnx to: %s",
+                    "MiDaS model unavailable. Run tools/fetch_model_assets.py to provision: %s",
                     model_file
                 )
                 self._use_fallback = True
@@ -196,16 +195,14 @@ class DepthEstimator:
     def _preprocess(self, bgr_image: np.ndarray) -> np.ndarray:
         """Resize, normalise, and add batch dimension for MiDaS."""
         rgb = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
-        resized = cv2.resize(rgb, (self.input_size, self.input_size), interpolation=cv2.INTER_AREA)
+        resized = cv2.resize(rgb, (self.input_size, self.input_size), interpolation=cv2.INTER_CUBIC)
         tensor = resized.astype(np.float32) / 255.0
 
-        # MiDaS ImageNet normalisation
-        mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
-        std  = np.array([0.229, 0.224, 0.225], dtype=np.float32)
-        tensor = (tensor - mean) / std
+        # The official model-small.onnx includes ImageNet Sub/Div nodes.
+        # Its input is RGB [0,1]; normalising here would apply it twice.
 
         # HWC → CHW → NCHW
-        tensor = np.transpose(tensor, (2, 0, 1))[np.newaxis, ...]
+        tensor = np.ascontiguousarray(np.transpose(tensor, (2, 0, 1))[np.newaxis, ...])
         return tensor
 
     def _postprocess(
@@ -221,6 +218,8 @@ class DepthEstimator:
         d_min, d_max = float(depth.min()), float(depth.max())
         if d_max - d_min > 1e-6:
             depth = (depth - d_min) / (d_max - d_min)
+        else:
+            depth = np.zeros_like(depth)
 
         # Invert: MiDaS output is inverse-depth (larger = closer)
         depth = 1.0 - depth

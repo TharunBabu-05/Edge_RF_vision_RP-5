@@ -1,5 +1,7 @@
 # Engineering update — 7 November 2026
 
+**Model provisioning update — 10 November 2026:** the MiDaS v2.1 Small and YOLOv8n FP32 ONNX binaries are now included, with pinned sources, checksums, licenses and a Pi-compatible provisioning/validation helper. MiDaS's wrapper was corrected to avoid applying ImageNet normalization twice. Both models passed real-image CPU inference on the development machine; the regression suite now passes 38 tests. See [model setup](../models/README.md) for transfer and validation commands. The November 7 notes below describe the earlier baseline.
+
 This update improves the root Python application and its browser interfaces. The vendored research repositories are reference material, not part of the running pipeline. No hardware performance or accuracy certification is implied.
 
 ## User-facing additions
